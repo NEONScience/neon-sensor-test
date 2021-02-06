@@ -9,6 +9,11 @@
 
 library(shiny)
 library(shinydashboard)
+library(shinycssloaders)
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+
 
 # Define UI for application that draws a histogram
 shinyUI(fluidPage(
@@ -51,16 +56,16 @@ shinyUI(fluidPage(
                   shiny::fluidRow(
                       shiny::plotOutput(
                           "plot"
-                      )
-                  ),
-                  shiny::fluidRow(
-                    shiny::h2("Head of Reference's Data"),
-                    shiny::tableOutput("s3_location_1"),
-                    shiny::h2("Head of Test Unit 1's Data"),
-                    shiny::tableOutput("s3_location_2"),
-                    shiny::h2("Head of Test Unit 2's Data"),
-                    shiny::tableOutput("s3_location_3")
+                      ) %>% shinycssloaders::withSpinner(color="#012D74",type="8",color.background = "white")
                   )
+                  # shiny::fluidRow(
+                  #   shiny::h2("Head of Reference's Data"),
+                  #   shiny::tableOutput("s3_location_1"),
+                  #   shiny::h2("Head of Test Unit 1's Data"),
+                  #   shiny::tableOutput("s3_location_2"),
+                  #   shiny::h2("Head of Test Unit 2's Data"),
+                  #   shiny::tableOutput("s3_location_3")
+                  # )
         )
     )
 ))
