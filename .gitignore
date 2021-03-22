@@ -3,6 +3,7 @@ write.RDS
 delete.RDS
 
 .Rproj.user
+*.Rproj
 .Rhistory
 .RData
 .Ruserdata
