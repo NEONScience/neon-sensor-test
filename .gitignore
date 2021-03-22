@@ -1,3 +1,7 @@
+# gitignore
+write.RDS
+delete.RDS
+
 .Rproj.user
 .Rhistory
 .RData
