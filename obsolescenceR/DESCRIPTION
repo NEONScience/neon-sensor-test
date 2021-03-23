@@ -1,0 +1,12 @@
+Package: obsolescenceR
+Type: Package
+Title: Version controls and packages code for obsolescence testing.
+Version: 0.1.0
+Author: Kevin Styers <kstyers@battelleecology.org>
+Maintainer: Kevin Styers <kstyers@battelleecology.org>
+Description: This package contains functions to facilitate obsolescence testing, that supports the development of similar code and analysis
+    Use four spaces when indenting paragraphs within the Description.
+License: GNU AFFERO GENERAL PUBLIC LICENSE Version 3
+Encoding: UTF-8
+LazyData: true
+RoxygenNote: 7.1.1

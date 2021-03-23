@@ -1,12 +1,12 @@
-base::source("~/neon-sensor-test/flow/flow.amrs/flow.amrs.test.R")
+library(obsolescenceR)
 
 amrs_01.s3filepath = "https://neon-sae-files.s3.data.neonscience.org/ods/dataproducts/IP0/2021-02-09/WREF/NEON.D16.WREF.IP0.00200.001.ecte.2021-02-09.l0p.h5.gz"
 amrs_02.s3filepath = "https://neon-sae-files.s3.data.neonscience.org/ods/dataproducts/IP0/2021-02-09/JORN/NEON.D14.JORN.IP0.00200.001.ecte.2021-02-09.l0p.h5.gz"
 amrs_03.s3filepath = "https://neon-sae-files.s3.data.neonscience.org/ods/dataproducts/IP0/2021-02-09/WOOD/NEON.D09.WOOD.IP0.00200.001.ecte.2021-02-09.l0p.h5.gz"
 
-download.amrs.test.data(s3filepath = amrs_01.s3filepath)
-download.amrs.test.data(s3filepath = amrs_02.s3filepath)
-download.amrs.test.data(s3filepath = amrs_03.s3filepath)
+obsolescenceR::download_amrs(s3filepath = amrs_01.s3filepath)
+obsolescenceR::download_amrs(s3filepath = amrs_02.s3filepath)
+obsolescenceR::download_amrs(s3filepath = amrs_03.s3filepath)
 
 # Set up read creds
 Sys.setenv("AWS_S3_ENDPOINT"       = "neonscience.org",
