@@ -27,10 +27,21 @@ download_li7200_rs_comparison_data = function(sensorID){
         paste0("https://dev-sae-files.test-s3.data.neonscience.org/ods/dataproducts/IP4/2021-04-28/HQTW/NEON.D10.HQTW.IP4.00200.001.ecte.2021-04-28.expanded.h5.gz"),
         paste0("https://dev-sae-files.test-s3.data.neonscience.org/ods/dataproducts/IP4/2021-04-29/HQTW/NEON.D10.HQTW.IP4.00200.001.ecte.2021-04-29.expanded.h5.gz"),
         paste0("https://dev-sae-files.test-s3.data.neonscience.org/ods/dataproducts/IP4/2021-04-30/HQTW/NEON.D10.HQTW.IP4.00200.001.ecte.2021-04-30.expanded.h5.gz"),
-        paste0("https://dev-sae-files.test-s3.data.neonscience.org/ods/dataproducts/IP4/2021-05-01/HQTW/NEON.D10.HQTW.IP4.00200.001.ecte.2021-05-01.expanded.h5.gz")
-        # paste0("https://dev-sae-files.test-s3.data.neonscience.org/ods/dataproducts/IP4/2021-05-02/HQTW/NEON.D10.HQTW.IP4.00200.001.ecte.2021-05-02.expanded.h5.gz"),
-        # paste0("https://dev-sae-files.test-s3.data.neonscience.org/ods/dataproducts/IP4/2021-05-03/HQTW/NEON.D10.HQTW.IP4.00200.001.ecte.2021-05-03.expanded.h5.gz"),
-        # paste0("https://dev-sae-files.test-s3.data.neonscience.org/ods/dataproducts/IP4/2021-05-04/HQTW/NEON.D10.HQTW.IP4.00200.001.ecte.2021-05-04.expanded.h5.gz")
+        paste0("https://dev-sae-files.test-s3.data.neonscience.org/ods/dataproducts/IP4/2021-05-01/HQTW/NEON.D10.HQTW.IP4.00200.001.ecte.2021-05-01.expanded.h5.gz"),
+
+        # Break in data....
+        
+        paste0("https://int-sae-files.test-s3.data.neonscience.org/ods/dataproducts/IP4/2021-05-07/HQTW/NEON.D10.HQTW.IP4.00200.001.ecte.2021-05-07.expanded.h5.gz"), 
+        paste0("https://int-sae-files.test-s3.data.neonscience.org/ods/dataproducts/IP4/2021-05-08/HQTW/NEON.D10.HQTW.IP4.00200.001.ecte.2021-05-08.expanded.h5.gz"),
+        paste0("https://int-sae-files.test-s3.data.neonscience.org/ods/dataproducts/IP4/2021-05-09/HQTW/NEON.D10.HQTW.IP4.00200.001.ecte.2021-05-09.expanded.h5.gz"),
+        paste0("https://int-sae-files.test-s3.data.neonscience.org/ods/dataproducts/IP4/2021-05-10/HQTW/NEON.D10.HQTW.IP4.00200.001.ecte.2021-05-10.expanded.h5.gz"),
+        paste0("https://int-sae-files.test-s3.data.neonscience.org/ods/dataproducts/IP4/2021-05-11/HQTW/NEON.D10.HQTW.IP4.00200.001.ecte.2021-05-11.expanded.h5.gz"),
+        paste0("https://int-sae-files.test-s3.data.neonscience.org/ods/dataproducts/IP4/2021-05-12/HQTW/NEON.D10.HQTW.IP4.00200.001.ecte.2021-05-12.expanded.h5.gz"),
+        paste0("https://int-sae-files.test-s3.data.neonscience.org/ods/dataproducts/IP4/2021-05-13/HQTW/NEON.D10.HQTW.IP4.00200.001.ecte.2021-05-13.expanded.h5.gz"),
+        paste0("https://int-sae-files.test-s3.data.neonscience.org/ods/dataproducts/IP4/2021-05-14/HQTW/NEON.D10.HQTW.IP4.00200.001.ecte.2021-05-14.expanded.h5.gz")
+        
+        
+        
       )
       
     }
@@ -46,10 +57,20 @@ download_li7200_rs_comparison_data = function(sensorID){
         paste0("https://int-sae-files.test-s3.data.neonscience.org/ods/dataproducts/IP4/2021-04-28/HQTW/NEON.D10.HQTW.IP4.00200.001.ecte.2021-04-28.expanded.h5.gz"),
         paste0("https://int-sae-files.test-s3.data.neonscience.org/ods/dataproducts/IP4/2021-04-29/HQTW/NEON.D10.HQTW.IP4.00200.001.ecte.2021-04-29.expanded.h5.gz"),
         paste0("https://int-sae-files.test-s3.data.neonscience.org/ods/dataproducts/IP4/2021-04-30/HQTW/NEON.D10.HQTW.IP4.00200.001.ecte.2021-04-30.expanded.h5.gz"),
-        paste0("https://int-sae-files.test-s3.data.neonscience.org/ods/dataproducts/IP4/2021-05-01/HQTW/NEON.D10.HQTW.IP4.00200.001.ecte.2021-05-01.expanded.h5.gz")
-        # paste0("https://int-sae-files.test-s3.data.neonscience.org/ods/dataproducts/IP4/2021-05-02/HQTW/NEON.D10.HQTW.IP4.00200.001.ecte.2021-05-02.expanded.h5.gz"),
-        # paste0("https://int-sae-files.test-s3.data.neonscience.org/ods/dataproducts/IP4/2021-05-03/HQTW/NEON.D10.HQTW.IP4.00200.001.ecte.2021-05-03.expanded.h5.gz"),
-        # paste0("https://int-sae-files.test-s3.data.neonscience.org/ods/dataproducts/IP4/2021-05-04/HQTW/NEON.D10.HQTW.IP4.00200.001.ecte.2021-05-04.expanded.h5.gz")
+        paste0("https://int-sae-files.test-s3.data.neonscience.org/ods/dataproducts/IP4/2021-05-01/HQTW/NEON.D10.HQTW.IP4.00200.001.ecte.2021-05-01.expanded.h5.gz"),
+
+        
+        # Break in data ....
+        
+        
+        paste0("https://dev-sae-files.test-s3.data.neonscience.org/ods/dataproducts/IP4/2021-05-07/HQTW/NEON.D10.HQTW.IP4.00200.001.ecte.2021-05-07.expanded.h5.gz"),
+        paste0("https://dev-sae-files.test-s3.data.neonscience.org/ods/dataproducts/IP4/2021-05-08/HQTW/NEON.D10.HQTW.IP4.00200.001.ecte.2021-05-08.expanded.h5.gz"),
+        paste0("https://dev-sae-files.test-s3.data.neonscience.org/ods/dataproducts/IP4/2021-05-09/HQTW/NEON.D10.HQTW.IP4.00200.001.ecte.2021-05-09.expanded.h5.gz"),
+        paste0("https://dev-sae-files.test-s3.data.neonscience.org/ods/dataproducts/IP4/2021-05-10/HQTW/NEON.D10.HQTW.IP4.00200.001.ecte.2021-05-10.expanded.h5.gz"),
+        paste0("https://dev-sae-files.test-s3.data.neonscience.org/ods/dataproducts/IP4/2021-05-11/HQTW/NEON.D10.HQTW.IP4.00200.001.ecte.2021-05-11.expanded.h5.gz"),
+        paste0("https://dev-sae-files.test-s3.data.neonscience.org/ods/dataproducts/IP4/2021-05-12/HQTW/NEON.D10.HQTW.IP4.00200.001.ecte.2021-05-12.expanded.h5.gz"),
+        paste0("https://dev-sae-files.test-s3.data.neonscience.org/ods/dataproducts/IP4/2021-05-13/HQTW/NEON.D10.HQTW.IP4.00200.001.ecte.2021-05-13.expanded.h5.gz"),
+        paste0("https://dev-sae-files.test-s3.data.neonscience.org/ods/dataproducts/IP4/2021-05-14/HQTW/NEON.D10.HQTW.IP4.00200.001.ecte.2021-05-14.expanded.h5.gz")
       )
       
     }
@@ -68,5 +89,5 @@ download_li7200_rs_comparison_data = function(sensorID){
     base::lapply(gzFile, R.utils::gunzip)
   }
 }
-download.test.files(sensorID = "Li7200")
-download.test.files(sensorID = "Li7200RS")
+download_li7200_rs_comparison_data(sensorID = "Li7200")
+download_li7200_rs_comparison_data(sensorID = "Li7200RS")
