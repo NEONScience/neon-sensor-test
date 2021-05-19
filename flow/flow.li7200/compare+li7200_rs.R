@@ -384,7 +384,7 @@ compare.stream = function(stream, interval = "01", test.week = "1", Percentages 
       ecte_plot_2 = ggplot(ecte_boxplot_data, aes(x = day, y = fluxRaw, fill = sensorID)) +
         geom_boxplot() +
         annotate("rect", xmin = "2021-04-21", xmax = "2021-05-02", ymin = plot_max, ymax = plot_min, alpha = 0.1, fill = "#00cc00") +
-        annotate("rect", xmin = "2021-05-02", xmax = "2021-05-15", ymin = plot_max, ymax = plot_min, alpha = 0.1, fill = "blue") +  
+        annotate("rect", xmin = "2021-05-02", xmax = "2021-05-17", ymin = plot_max, ymax = plot_min, alpha = 0.1, fill = "blue") +  
         labs(x = "", y = ecte_boxplot_data$units[1], fill = "Sensor",title = paste0("Li7200 Obsolecence Test: Time-series boxplots of raw ", stream)) +
         annotate("text", x = "2021-04-22", y = plot_max, label = "Week 1")+
         annotate("text", x = "2021-05-07", y = plot_max, label = "Week 2")+
@@ -415,7 +415,7 @@ compare.stream = function(stream, interval = "01", test.week = "1", Percentages 
       ecte_plot_4 = ggplot(ecte_boxplot_data, aes(x = day, y = difference)) +
         geom_boxplot() +
         annotate("rect", xmin = "2021-04-21", xmax = "2021-05-02", ymin = plot_max, ymax = plot_min, alpha = 0.1, fill = "#00cc00") +
-        annotate("rect", xmin = "2021-05-02", xmax = "2021-05-15", ymin = plot_max, ymax = plot_min, alpha = 0.1, fill = "blue") +  
+        annotate("rect", xmin = "2021-05-02", xmax = "2021-05-17", ymin = plot_max, ymax = plot_min, alpha = 0.1, fill = "blue") +  
         labs(x = "", y = paste0(ecte_boxplot_data$units[1]), fill = "Sensor", subtitle = "48 30-minute average per day",
              title =  paste0("Li7200 Obsolecence Test: \n\tTime-series boxplots of raw ", stream, " differences between the Li7200 and Li7200 RS")) +
         annotate("text", x = "2021-04-22", y = plot_max+1, label = "Week 1")+
@@ -464,7 +464,7 @@ compare.stream = function(stream, interval = "01", test.week = "1", Percentages 
       ecte_plot_2 = ggplot(ecte_boxplot_data, aes(x = day, y = fluxRaw, fill = sensorID)) +
         geom_boxplot() +
         annotate("rect", xmin = "2021-04-21", xmax = "2021-05-02", ymin = plot_max, ymax = plot_min, alpha = 0.1, fill = "#00cc00") +
-        annotate("rect", xmin = "2021-05-02", xmax = "2021-05-15", ymin = plot_max, ymax = plot_min, alpha = 0.1, fill = "blue") +  
+        annotate("rect", xmin = "2021-05-02", xmax = "2021-05-17", ymin = plot_max, ymax = plot_min, alpha = 0.1, fill = "blue") +  
         labs(x = "", y = ecte_boxplot_data$units[1], fill = "Sensor",title = paste0("Li7200 Obsolecence Test: Time-series boxplots of raw ", stream)) +
         annotate("text", x = "2021-04-22", y = plot_max, label = "Week 1")+
         annotate("text", x = "2021-05-07", y = plot_max, label = "Week 2")+
@@ -495,7 +495,7 @@ compare.stream = function(stream, interval = "01", test.week = "1", Percentages 
       ecte_plot_4 = ggplot(ecte_boxplot_data, aes(x = day, y = difference)) +
         geom_boxplot() +
         annotate("rect", xmin = "2021-04-21", xmax = "2021-05-02", ymin = plot_max, ymax = plot_min, alpha = 0.1, fill = "#00cc00") +
-        annotate("rect", xmin = "2021-05-02", xmax = "2021-05-15", ymin = plot_max, ymax = plot_min, alpha = 0.1, fill = "blue") +  
+        annotate("rect", xmin = "2021-05-02", xmax = "2021-05-17", ymin = plot_max, ymax = plot_min, alpha = 0.1, fill = "blue") +  
         labs(x = "", y = paste0(ecte_boxplot_data$units[1]), fill = "Sensor", subtitle = "48 30-minute average per day",
              title =  paste0("Li7200 Obsolecence Test: \n\tTime-series boxplots of raw ", stream, " differences between the Li7200 and Li7200 RS")) +
         annotate("text", x = "2021-04-22", y = plot_max+1, label = "Week 1")+
