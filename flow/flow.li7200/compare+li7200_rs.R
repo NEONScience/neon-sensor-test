@@ -149,7 +149,7 @@ compare.stream = function(stream, interval = "01", test.week = "1", Percentages 
     # Return the data and the plot :D
     return(list(Li7200.dcast, plot1, plot2,Li7200.mad.stats,Li7200.rmsd.stats))
     
-  } else if(stream %in% c("frt00Samp", "rtioMoleDryCo2Raw")){
+  } else if(stream %in% c("frt00Samp", "rtioMoleDryCo2Raw", "rtioMoleDryH2oRaw")){
     
     #############################################  frt00Samp Comparison         ######################################
     #############################################  rtioMoleDryCo2Raw Comparison ######################################
@@ -162,14 +162,31 @@ compare.stream = function(stream, interval = "01", test.week = "1", Percentages 
       Li7200A.file = paste0(base.dir, "Li7200/NEON.D10.HQTW.IP4.00200.001.ecte.", day,".expanded.h5")
       Li7200B.file = paste0(base.dir, "Li7200RS/NEON.D10.HQTW.IP4.00200.001.ecte.", day,".expanded.h5")
       
+      # Create variable that determines what week the test file occured durring
+      if(day < "2021-05-03"){
+        phase_insert = "Phase 1"
+      } else {
+        phase_insert = "Phase 2"
+      }
+      
+      ls_of_file = rhdf5::h5ls(file = Li7200A.file, datasetinfo = FALSE)
+      
+      file_of_interest = ls_of_file %>% 
+        dplyr::filter(name == stream) %>% 
+        dplyr::filter(stringr::str_detect(string = group, pattern = "data")) %>% 
+        dplyr::filter(stringr::str_detect(string = group, pattern = paste0(interval,"m"))) %>% 
+        tidyr::unite(col = file_path, c("group", "name"), sep = "/") %>% dplyr::select(file_path)
+      
       # Read in A and B sensors data
-      Li7200A.flow.data = rhdf5::h5read(file = Li7200A.file, name = paste0("/HQTW/dp01/data/co2Turb/000_040_",interval,"m/", stream)) %>%
-        dplyr::mutate(sensorID = "Li7200 (regular)") 
-      Li7200B.flow.data = rhdf5::h5read(file = Li7200B.file, name = paste0("/HQTW/dp01/data/co2Turb/000_040_",interval,"m/", stream)) %>%
-        dplyr::mutate(sensorID = "Li7200 (RS)")
+      Li7200A.flow.data = rhdf5::h5read(file = Li7200A.file, name = file_of_interest$file_path[1]) %>%
+        dplyr::mutate(sensorID = "Li7200 (regular)") %>% 
+        dplyr::mutate(phase = phase_insert)
+      Li7200B.flow.data = rhdf5::h5read(file = Li7200B.file, name = file_of_interest$file_path[1]) %>%
+        dplyr::mutate(sensorID = "Li7200 (RS)")%>% 
+        dplyr::mutate(phase = phase_insert)
       
       # Read in units
-      Li7200.units = rhdf5::h5readAttributes(file = Li7200A.file, name = paste0("/HQTW/dp01/data/co2Turb/000_040_",interval,"m/", stream))$unit[1]
+      Li7200.units = rhdf5::h5readAttributes(file = Li7200A.file, name = file_of_interest$file_path[1])$unit[1]
       
       # Join all the pres data together
       Li7200.flow.join = data.table::rbindlist(l = list(Li7200A.flow.data, Li7200B.flow.data))%>%
@@ -203,7 +220,7 @@ compare.stream = function(stream, interval = "01", test.week = "1", Percentages 
       )
     
     Li7200.dcast = Li7200.join %>%
-      reshape2::dcast(timeBgn + timeEnd + units ~ sensorID, value.var = "mean") %>%
+      reshape2::dcast(phase + timeBgn + timeEnd + units ~ sensorID, value.var = "mean") %>%
       dplyr::mutate(difference = `Li7200 (regular)` - `Li7200 (RS)`)  
     
     # Calculate med and mad stats
@@ -238,15 +255,14 @@ compare.stream = function(stream, interval = "01", test.week = "1", Percentages 
         dplyr::mutate(units = Li7200.dcast$units[1]) %>%
         dplyr::select(streamID, units, `rmsd`, `diffMean`, `prcs`, rsq, samp)
     }
-    
     # Create flow comparison plot
     plot1 = ggplot(Li7200.join, aes(x = timeEnd, y = mean, color = sensorID)) +
       geom_point(alpha = .5) +
       # geom_line(alpha = .3) +
       scale_x_datetime(date_breaks = "2 day", date_labels = paste0("%Y\n%m-%d"))+
       scale_y_continuous(breaks = scales::pretty_breaks(n = 10)) +
-      labs(title = "Time-series of ECTE Sample Flows", 
-           x ="", y = "Flow (SLPM)")+
+      labs(title = paste0("Time-series of ", stream), 
+           x ="", y = Li7200.join$units[1])+
       theme(legend.position = "none", text = element_text(size = 16))+
       facet_wrap(~sensorID, scales = "free_x")
     # Create raw difference in flow plot
@@ -255,14 +271,43 @@ compare.stream = function(stream, interval = "01", test.week = "1", Percentages 
       # geom_line(alpha = .3) +
       scale_x_datetime(date_breaks = "2 day", date_labels = paste0("%Y\n%m-%d"))+
       scale_y_continuous(breaks = scales::pretty_breaks(n = 10)) +
-      labs(title = "Time-series of Flow Differences Between Li7200 (regular) and Li7200 (RS)",
-           x = "", y = "Difference (SLPM)") +
+      labs(title =  paste0("Time-series of ", stream, " differences between Li7200 and Li7200 RS"),
+           x = "", y = Li7200.join$units[1]) +
+      theme(
+        text = element_text(size = 16)
+      )
+    # Create comparison between both sensors for a single stream
+    plot3 = ggplot(Li7200.dcast %>%  dplyr::mutate(day = as.Date(timeBgn, origin = "1970-01-01")), aes(x = `Li7200 (regular)`, y = `Li7200 (RS)`)) +
+      geom_point() + 
+      scale_y_continuous(sec.axis = dup_axis(name = "")) +
+      facet_wrap(~day) +
+      labs(title = "Comparing Li7200 and Li7200 RS Directly During both phases", 
+           subtitle = paste0("Stream: ", stream), 
+           caption = "Phase 1: 2021-04-22 to 2021-05-01\nPhase 2: 2021-05-07 to 2021-05-16"
+      )+
       theme(
         text = element_text(size = 16)
       )
     
+    ecte_boxplot_data = Li7200.join %>% 
+      dplyr::mutate(day = factor(as.Date(timeBgn, origin = "1970-01-01")) )
+    
+    plot_max = max(ecte_boxplot_data$mean, na.rm = TRUE)
+    plot_min = min(ecte_boxplot_data$mean, na.rm = TRUE)
+    
+    plot4 = ggplot(ecte_boxplot_data, aes(x = day, y = mean, fill = sensorID)) +
+      geom_boxplot() +
+      annotate("rect", xmin = "2021-04-21", xmax = "2021-05-02", ymin = plot_max, ymax = plot_min, alpha = 0.1, fill = "#00cc00") +
+      annotate("rect", xmin = "2021-05-02", xmax = "2021-05-17", ymin = plot_max, ymax = plot_min, alpha = 0.1, fill = "blue") +  
+      labs(x = "", y = ecte_boxplot_data$units[1], fill = "Sensor",title = paste0("Li7200 Obsolecence Test: Time-series boxplots of raw ", stream)) +
+      annotate("text", x = "2021-04-22", y = plot_max, label = "Phase 1")+
+      annotate("text", x = "2021-05-07", y = plot_max, label = "Phase 2")+
+      theme_bw()+
+      theme(axis.text.x = element_text(angle = 270), legend.position = "top",text = element_text(size = 16))
+    
+    
     # Return the data and the plot :D
-    return(list(Li7200.dcast, plot1, plot2,Li7200.mad.stats,Li7200.rmsd.stats))
+    return(list(Li7200.dcast, plot1, plot2,Li7200.mad.stats,Li7200.rmsd.stats,plot3, plot4))
     
   } else { 
     message(paste0("Grabbing ", stream ," Comparison"))
@@ -386,10 +431,10 @@ compare.stream = function(stream, interval = "01", test.week = "1", Percentages 
         annotate("rect", xmin = "2021-04-21", xmax = "2021-05-02", ymin = plot_max, ymax = plot_min, alpha = 0.1, fill = "#00cc00") +
         annotate("rect", xmin = "2021-05-02", xmax = "2021-05-17", ymin = plot_max, ymax = plot_min, alpha = 0.1, fill = "blue") +  
         labs(x = "", y = ecte_boxplot_data$units[1], fill = "Sensor",title = paste0("Li7200 Obsolecence Test: Time-series boxplots of raw ", stream)) +
-        annotate("text", x = "2021-04-22", y = plot_max, label = "Week 1")+
-        annotate("text", x = "2021-05-07", y = plot_max, label = "Week 2")+
+        annotate("text", x = "2021-04-22", y = plot_max, label = "Phase 1")+
+        annotate("text", x = "2021-05-07", y = plot_max, label = "Phase 2")+
         theme_bw()+
-        theme(axis.text.x = element_text(angle = 290), legend.position = "top")
+        theme(axis.text.x = element_text(angle = 270), legend.position = "top", text = element_text(size = 16))
       
       # Raw difference over time
       ecte_boxplot_data = Li7200.dcast  %>% 
@@ -418,10 +463,10 @@ compare.stream = function(stream, interval = "01", test.week = "1", Percentages 
         annotate("rect", xmin = "2021-05-02", xmax = "2021-05-17", ymin = plot_max, ymax = plot_min, alpha = 0.1, fill = "blue") +  
         labs(x = "", y = paste0(ecte_boxplot_data$units[1]), fill = "Sensor", subtitle = "48 30-minute average per day",
              title =  paste0("Li7200 Obsolecence Test: \n\tTime-series boxplots of raw ", stream, " differences between the Li7200 and Li7200 RS")) +
-        annotate("text", x = "2021-04-22", y = plot_max+1, label = "Week 1")+
-        annotate("text", x = "2021-05-07", y = plot_max+1, label = "Week 2")+
+        annotate("text", x = "2021-04-22", y = plot_max+1, label = "Phase 1")+
+        annotate("text", x = "2021-05-07", y = plot_max+1, label = "Phase 2")+
         theme_bw()+
-        theme(axis.text.x = element_text(angle = 290), legend.position = "top")
+        theme(axis.text.x = element_text(angle = 270), legend.position = "top", text = element_text(size = 16))
       
       # Histogram of all differences
       ecte_plot_5 = ggplot(data = ecte_boxplot_data, aes(x = difference)) + 
@@ -439,7 +484,7 @@ compare.stream = function(stream, interval = "01", test.week = "1", Percentages 
         facet_wrap(~phase)+
         labs(y = paste0("Raw Flux ", Li7200.join$units[1]), x = "", title = paste0(stream)) +
         theme_bw()+
-        theme(text = element_text(size = 16),legend.position = "none")
+        theme(text = element_text(size = 16), legend.position = "none")
     }
     # Create the actual Flux overlayed plots H2O
     if(stream == "fluxH2o/turb"){
@@ -466,10 +511,10 @@ compare.stream = function(stream, interval = "01", test.week = "1", Percentages 
         annotate("rect", xmin = "2021-04-21", xmax = "2021-05-02", ymin = plot_max, ymax = plot_min, alpha = 0.1, fill = "#00cc00") +
         annotate("rect", xmin = "2021-05-02", xmax = "2021-05-17", ymin = plot_max, ymax = plot_min, alpha = 0.1, fill = "blue") +  
         labs(x = "", y = ecte_boxplot_data$units[1], fill = "Sensor",title = paste0("Li7200 Obsolecence Test: Time-series boxplots of raw ", stream)) +
-        annotate("text", x = "2021-04-22", y = plot_max, label = "Week 1")+
-        annotate("text", x = "2021-05-07", y = plot_max, label = "Week 2")+
+        annotate("text", x = "2021-04-22", y = plot_max, label = "Phase 1")+
+        annotate("text", x = "2021-05-07", y = plot_max, label = "Phase 2")+
         theme_bw()+
-        theme(axis.text.x = element_text(angle = 290), legend.position = "top")
+        theme(axis.text.x = element_text(angle = 270), legend.position = "top", text = element_text(size = 16))
       
       
       
@@ -498,10 +543,10 @@ compare.stream = function(stream, interval = "01", test.week = "1", Percentages 
         annotate("rect", xmin = "2021-05-02", xmax = "2021-05-17", ymin = plot_max, ymax = plot_min, alpha = 0.1, fill = "blue") +  
         labs(x = "", y = paste0(ecte_boxplot_data$units[1]), fill = "Sensor", subtitle = "48 30-minute average per day",
              title =  paste0("Li7200 Obsolecence Test: \n\tTime-series boxplots of raw ", stream, " differences between the Li7200 and Li7200 RS")) +
-        annotate("text", x = "2021-04-22", y = plot_max+1, label = "Week 1")+
-        annotate("text", x = "2021-05-07", y = plot_max+1, label = "Week 2")+
+        annotate("text", x = "2021-04-22", y = plot_max+1, label = "Phase 1")+
+        annotate("text", x = "2021-05-07", y = plot_max+1, label = "Phase 2")+
         theme_bw()+
-        theme(axis.text.x = element_text(angle = 290), legend.position = "top")
+        theme(axis.text.x = element_text(angle = 270), legend.position = "top")
 
       ecte_plot_5 = ggplot(data = Li7200.dcast, aes(x = difference)) + 
         geom_histogram(bins = 45, alpha = .85, fill = "#7570b3") +
@@ -535,9 +580,11 @@ plot.stream = function(week = "1"){
   data.3[[4]]
   data.4 = compare.stream(stream = "frt00Samp",         Percentages = FALSE, test.week = week)
   data.4[[4]]
-  data.5 = compare.stream(stream = "rtioMoleDryCo2Raw", Percentages = FALSE, test.week = week)
-  data.5[[4]]
   
+  data.5 = compare.stream(stream = "rtioMoleDryCo2Raw", Percentages = FALSE, test.week = week)
+
+  data.6 = compare.stream(stream = "rtioMoleDryH2oRaw", Percentages = FALSE, test.week = week)
+
   require(grid)
   # Plots for presentations 
   gridExtra::grid.arrange(data.1[[4]], data.2[[4]], ncol=2,
@@ -560,7 +607,7 @@ plot.stream = function(week = "1"){
   ) 
   
   gridExtra::grid.arrange(data.1[[6]], data.2[[6]], ncol=2, 
-                          top=grid::textGrob(paste0("WEEK ", week, " - Difference Comparison Between Li7200 (regular) and Li7200 (RS)"),
+                          top=grid::textGrob(paste0("Difference Comparison Between Li7200 (regular) and Li7200 (RS)"),
                                              gp=grid::gpar(fontsize=20,font=3)),
                           bottom = grid::textGrob("*",
                                                   gp = gpar(fontface = 3, fontsize = 12),
@@ -578,7 +625,7 @@ plot.stream = function(week = "1"){
   )
   
   gridExtra::grid.arrange(data.1[[8]], data.2[[8]], ncol=2, 
-                          top=grid::textGrob(paste0("WEEK ", week, " - Histogram of the Differences Between Li7200 (regular) and B's\n"),
+                          top=grid::textGrob(paste0("Histogram of the Differences Between Li7200 (regular) and Li7200 (RS)"),
                                              gp=grid::gpar(fontsize=20,font=3)),
                           bottom = grid::textGrob("*",
                             gp = gpar(fontface = 3, fontsize = 12),
@@ -588,7 +635,7 @@ plot.stream = function(week = "1"){
   )
   
   gridExtra::grid.arrange(data.1[[9]], data.2[[9]], ncol=2, 
-                          top=grid::textGrob(paste0("WEEK ", week, " - Boxplot of the Raw Fluxes Between Li7200 (regular) and B's\n"),
+                          top=grid::textGrob(paste0("Boxplot of the Raw Fluxes Between Li7200 (regular) and Li7200 (RS)"),
                                              gp=grid::gpar(fontsize=20,font=3)),
                           bottom = grid::textGrob("*",
                             gp = gpar(fontface = 3, fontsize = 12),
@@ -598,66 +645,77 @@ plot.stream = function(week = "1"){
   )
   
   
-  # Pressure Fluctuations 
+  # Pressure Fluctuations
   print(data.3[[3]])
-  
-  # Sample Flow  
+
+  # Sample Flow
   print(data.4[[2]])
-  
+
+  # Raw Co2
+  print(data.5[[2]])
+  print(data.5[[3]])
+  print(data.5[[6]])
+  print(data.5[[7]])
+  # Raw H2o
+  print(data.6[[2]])
+  print(data.6[[3]])
+  print(data.6[[6]])
+  print(data.6[[7]])
+
   
 }
 
 plot.stream(week = "1")
 
 
-grab.stats = function(week = "1"){
-
-  data.1.false = compare.stream(stream = "fluxCo2/turb",      Percentages = FALSE, test.week = week)
-  data.2.false = compare.stream(stream = "fluxH2o/turb",      Percentages = FALSE, test.week = week)
-  data.3.false = compare.stream(stream = "pres",              Percentages = FALSE, test.week = week)
-  data.4.false = compare.stream(stream = "frt00Samp",         Percentages = FALSE, test.week = week)
-  data.5.false = compare.stream(stream = "rtioMoleDryCo2Raw", Percentages = FALSE, test.week = week)
-  
-  data.1.true  = compare.stream(stream = "fluxCo2/turb",      Percentages =  TRUE, test.week = week)
-  data.2.true  = compare.stream(stream = "fluxH2o/turb",      Percentages =  TRUE, test.week = week)
-  data.3.true  = compare.stream(stream = "pres",              Percentages =  TRUE, test.week = week)
-  data.4.true  = compare.stream(stream = "frt00Samp",         Percentages =  TRUE, test.week = week)
-  data.5.true  = compare.stream(stream = "rtioMoleDryCo2Raw", Percentages =  TRUE, test.week = week)
-  
-  
-  data.mad.stats.true =   data.table::rbindlist(l = list(data.1.true[[2]],  data.2.true[[2]],  data.3.true[[4]],  data.4.true[[4]],  data.5.true[[4]]))
-  data.mad.stats.false =  data.table::rbindlist(l = list(data.1.false[[2]], data.2.false[[2]], data.3.false[[4]], data.4.false[[4]], data.5.false[[4]]))
-  data.rsmd.stats.true =  data.table::rbindlist(l = list(data.1.true[[3]],  data.2.true[[3]],  data.3.true[[5]],  data.4.true[[5]],  data.5.true[[5]]))
-  data.rsmd.stats.false = data.table::rbindlist(l = list(data.1.false[[3]], data.2.false[[3]], data.3.false[[5]], data.4.false[[5]], data.5.false[[5]]))
-  
-  
-  data.stats.med.mad = data.table::rbindlist(l = list(data.mad.stats.true, data.mad.stats.false), fill = TRUE)
-  data.stats.rmsd.rsq = data.table::rbindlist(l = list(data.rsmd.stats.true, data.rsmd.stats.false), fill = TRUE)
-  data.stats = dplyr::left_join(data.stats.med.mad, data.stats.rmsd.rsq, by = c("streamID", "units")) %>%
-    dplyr::mutate(`Test Period` = week) %>%
-    dplyr::select(streamID, `Test Period`, units, NumSamp, med, mad, rmsd, diffMean, prcs, rsq) %>%
-    dplyr::filter(streamID %in% c("fluxCo2/turb", "fluxH2o/turb","rtioMoleDryCo2Raw"))
-  
-  return(data.stats)
-  
-}
-
-options(scipen = 6)
-
-stats.return = grab.stats(week = "1") 
-
-knitr::kable(stats.return %>%
-               dplyr::filter(units == "%")
-)
-knitr::kable(stats.return %>%
-               dplyr::filter(units != "%")
-)
-
-stats.return = grab.stats(week = "2") 
-
-knitr::kable(stats.return %>%
-               dplyr::filter(units == "%")
-)
-knitr::kable(stats.return %>%
-               dplyr::filter(units != "%")
-)
+# grab.stats = function(week = "1"){
+# 
+#   data.1.false = compare.stream(stream = "fluxCo2/turb",      Percentages = FALSE, test.week = week)
+#   data.2.false = compare.stream(stream = "fluxH2o/turb",      Percentages = FALSE, test.week = week)
+#   data.3.false = compare.stream(stream = "pres",              Percentages = FALSE, test.week = week)
+#   data.4.false = compare.stream(stream = "frt00Samp",         Percentages = FALSE, test.week = week)
+#   data.5.false = compare.stream(stream = "rtioMoleDryCo2Raw", Percentages = FALSE, test.week = week)
+#   
+#   data.1.true  = compare.stream(stream = "fluxCo2/turb",      Percentages =  TRUE, test.week = week)
+#   data.2.true  = compare.stream(stream = "fluxH2o/turb",      Percentages =  TRUE, test.week = week)
+#   data.3.true  = compare.stream(stream = "pres",              Percentages =  TRUE, test.week = week)
+#   data.4.true  = compare.stream(stream = "frt00Samp",         Percentages =  TRUE, test.week = week)
+#   data.5.true  = compare.stream(stream = "rtioMoleDryCo2Raw", Percentages =  TRUE, test.week = week)
+#   
+#   
+#   data.mad.stats.true =   data.table::rbindlist(l = list(data.1.true[[2]],  data.2.true[[2]],  data.3.true[[4]],  data.4.true[[4]],  data.5.true[[4]]))
+#   data.mad.stats.false =  data.table::rbindlist(l = list(data.1.false[[2]], data.2.false[[2]], data.3.false[[4]], data.4.false[[4]], data.5.false[[4]]))
+#   data.rsmd.stats.true =  data.table::rbindlist(l = list(data.1.true[[3]],  data.2.true[[3]],  data.3.true[[5]],  data.4.true[[5]],  data.5.true[[5]]))
+#   data.rsmd.stats.false = data.table::rbindlist(l = list(data.1.false[[3]], data.2.false[[3]], data.3.false[[5]], data.4.false[[5]], data.5.false[[5]]))
+#   
+#   
+#   data.stats.med.mad = data.table::rbindlist(l = list(data.mad.stats.true, data.mad.stats.false), fill = TRUE)
+#   data.stats.rmsd.rsq = data.table::rbindlist(l = list(data.rsmd.stats.true, data.rsmd.stats.false), fill = TRUE)
+#   data.stats = dplyr::left_join(data.stats.med.mad, data.stats.rmsd.rsq, by = c("streamID", "units")) %>%
+#     dplyr::mutate(`Test Period` = week) %>%
+#     dplyr::select(streamID, `Test Period`, units, NumSamp, med, mad, rmsd, diffMean, prcs, rsq) %>%
+#     dplyr::filter(streamID %in% c("fluxCo2/turb", "fluxH2o/turb","rtioMoleDryCo2Raw"))
+#   
+#   return(data.stats)
+#   
+# }
+# 
+# options(scipen = 6)
+# 
+# stats.return = grab.stats(week = "1") 
+# 
+# knitr::kable(stats.return %>%
+#                dplyr::filter(units == "%")
+# )
+# knitr::kable(stats.return %>%
+#                dplyr::filter(units != "%")
+# )
+# 
+# stats.return = grab.stats(week = "2") 
+# 
+# knitr::kable(stats.return %>%
+#                dplyr::filter(units == "%")
+# )
+# knitr::kable(stats.return %>%
+#                dplyr::filter(units != "%")
+# )
