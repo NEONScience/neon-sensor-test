@@ -5,7 +5,7 @@ compare_amrs_data = function(){
   library(dplyr)
   library(data.table)
   library(stringr)
-  
+  library(fst)
   
   
   # S3 Connection
@@ -30,21 +30,25 @@ compare_amrs_data = function(){
     # Lookup files for ith date
     date_file_lookup = aws.s3::get_bucket_df(bucket = sensor_test_bucket, prefix = paste0("sensor/amrs/round_3/", date_i)) %>% 
       dplyr::filter(stringr::str_detect(string = Key, pattern = ".fst"))
-    # Read in data
-    dataList = lapply(
-      X = date_file_lookup$Key, 
-      FUN = aws.s3::s3read_using(
-        FUN = fst::read.fst, 
-        object = X,
-        bucket = sensor_test_bucket
-      )
-    )
+    
+    # Function to read in data through the lappy() call
+    read_in_amrs_data = function(x){
+      output = aws.s3::s3read_using(FUN = fst::read_fst, object = x, bucket = sensor_test_bucket) # Read in data x
+      return(output)
+    }
+    
+    # Read in data into List
+    dataList <- lapply(date_file_lookup$Key, read_in_amrs_data)
+    
+    
+
+
+
     
     
     
     
   }
-  
   
   
 }
