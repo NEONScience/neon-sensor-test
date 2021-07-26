@@ -122,7 +122,7 @@ compare_amrs_data = function(){
     
     
     for (idx in names(dataList)) {
-      startTime.time_regularization <- Sys.time()()
+      startTime.time_regularization <- Sys.time()
       if(idx %in% "soni"){
         message(paste0(Sys.time(), ": Wrangling CSAT3 data"))
         
@@ -182,7 +182,7 @@ compare_amrs_data = function(){
         #Adding units as an attribute
         attr(dataList[[idx]], which = "unit") <- c("m s-2", "m s-2", "m s-2", "m s-2", "m s-2", "m s-2",  "deg", "deg", "deg","rad s-1", "rad s-1", "rad s-1", "NA", "NA")
         #perform unit conversion
-        message(paste0(Sys.time()(), ": AMRS:\t Performing Unit Conversion"))
+        message(paste0(Sys.time(), ": AMRS:\t Performing Unit Conversion"))
         dataList[[idx]] <- base::suppressWarnings(eddy4R.base::def.unit.conv(data = dataList[[idx]],
                                                                              unitFrom = attributes(dataList[[idx]])$unit,
                                                                              unitTo = "intl"))
@@ -196,7 +196,7 @@ compare_amrs_data = function(){
                                                  MethRglr = "CybiEc"
         )$dataRglr
         
-        message(paste0(Sys.time()(), ": AMRS:\t Adding regularized timestamp"))
+        message(paste0(Sys.time(), ": AMRS:\t Adding regularized timestamp"))
         dataList[[idx]]$time <- timeRglr40
         
         #Adding units back to output
@@ -207,9 +207,87 @@ compare_amrs_data = function(){
         message(paste0(Sys.time(), ": AMRS:\t Completed!"))
         
       }#end of else statement
-      message(paste0(idx, " sensor time regularization completed!\n", round(difftime(Sys.time()(), startTime.time_regularization, units = "secs"),2)," seconds"))
-    }#end for loop
+      message(paste0(idx, " sensor time regularization completed!\n", round(difftime(Sys.time(), startTime.time_regularization, units = "secs"),2)," seconds"))
+    } #end for loop
     
+    
+    #####################################################################################
+    #perform de-spiking and calculate derived quantities
+    #####################################################################################
+    # Assign list for de-spiking algorythm
+    dskData <- list()
+    for(idx in names(dataList)) {
+      
+      message(paste0(Sys.time(), ": Starting ", idx))
+      
+      dskData[[idx]] <- dataList[[idx]][,which(!names(dataList[[idx]]) %in% c("idx", "diag", "diag32","time"))] # Pick the variables to despike
+      for(idxVar in colnames(dskData[[idx]])) {
+        
+        base::source("~/eddy/neon-sensor-test/flow/flow.amrs/def.amrs.cmpr.def.dspk.br86.R")
+        
+        message(paste0(Sys.time(), ": \tDespiking ", idx, "'s ", idxVar, " field."))
+        dskData[[idx]][,idxVar] <- def.dspk.br86(
+          # input data, univariate vector of integers or numerics
+          dataInp = as.vector(dskData[[idx]][,idxVar]),
+          # filter width
+          WndwFilt = 9,
+          # initial number/step size of histogram bins
+          NumBin = 2,
+          # resolution threshold
+          ThshReso = 10
+        )$dataOut
+      }
+    }
+    
+    ### NEED SONI DATA FOR THIS....
+    # #calculate derived quantities for soni
+    # #correction for attitude and motion via AMRS
+    # #Convert the angle of installation to radians
+    # AngZaxsSoniInst <- eddy4R.base::def.unit.conv(data=AngZaxsSoniInst,unitFrom="deg",unitTo="rad")
+    # 
+    # #rotate wind vector into meteorological coordinate system (positive from west, south and below)
+    # dskData$soni <- def.met.body(AngZaxsSoniInst = AngZaxsSoniInst, veloBody = dskData$soni)
+    # 
+    # #magnitude of horizontal wind speed
+    # dskData$soni$veloXaxsYaxsErth <- sqrt(dskData$soni$veloXaxs^2 + dskData$soni$veloYaxs^2)
+    # 
+    # # wind direction
+    # # need to redo for vector averaging, see REYNflux_P5.R line 139
+    # dskData$soni$angZaxsErth <- ff::as.ff((2*pi + atan2(-dskData$soni$veloYaxs[], -dskData$soni$veloXaxs[]))%%(2*pi))
+    # #dskData$soni$angZaxsErth <- (2*pi + atan2(-dskData$soni$veloYaxs[], -dskData$soni$veloXaxs[]))%%(2*pi)
+    # invisible(gc())
+    
+    ######################################################################################
+    #lag time correction 
+    ######################################################################################
+    # select variables for which to perform
+    sens <- c("soniAmrs02", "soniAmrs03")
+    for (idxSens in sens){
+      for(idxVar in names(dskData$soniAmrs01)) {
+        # actual cross-correlation
+        
+        lag <- eddy4R.base::def.lag(
+          refe = dskData$soniAmrs01[[idxVar]],
+          meas = dskData[[idxSens]][[idxVar]],
+          # dataRefe = wrk$data$soni,
+          # max. 2 s lag time
+          # atm. transport time = 1 s = separation distance 0.15 m / minimum mean horizontal wind speed 0.15 m s-1
+          # tube transport time = 0.15 s = volume of tube and cell 0.03 L / flow rate 12 L min-1 * 60 s min-1
+          lagMax = 2 * Freq40,
+          lagCnst = TRUE,
+          # only negative lags permitted (reference leads)
+          lagNgtvPstv = c("n", "p", "np")[3],
+          # consider positive and negative extrema
+          lagAll = TRUE,
+          freq = Freq40,
+          hpf = TRUE
+        )
+        
+        # shift and reassign data
+        if(!is.na(lag$lag)) dskData[[idxSens]][[idxVar]] <- DataCombine:::shift(VarVect = dskData[[idxSens]][[idxVar]], shiftBy = - lag$lag, reminder = FALSE)
+        
+      }
+    }
 
 
 

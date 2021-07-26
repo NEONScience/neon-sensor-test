@@ -48,7 +48,7 @@ download_amrs_comparison_data = function(sensorID = "AMRS_01", round = "3"){
     
     # Form Download URL Path
     download_s3_path = test_data_lookup$Key[i]
-    file_date = str_extract(download_s3_path, "[0-9]{4}-[0-9]{2}-[0-9]{2}")
+    file_date = stringr::str_extract(download_s3_path, "[0-9]{4}-[0-9]{2}-[0-9]{2}")
     download_url = paste0("https://", amrs_bucket, ".test-s3.data.neonscience.org/", download_s3_path)
     
     # Form Local Save Path
