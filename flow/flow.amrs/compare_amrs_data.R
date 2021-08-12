@@ -6,6 +6,7 @@ compare_amrs_data = function(){
   library(data.table)
   library(stringr)
   library(fst)
+  library(here)
   
   
   # S3 Connection
@@ -207,7 +208,7 @@ compare_amrs_data = function(){
         message(paste0(Sys.time(), ": AMRS:\t Completed!"))
         
       }#end of else statement
-      message(paste0(idx, " sensor time regularization completed!\n", round(difftime(Sys.time(), startTime.time_regularization, units = "secs"),2)," seconds"))
+      message(paste0(Sys.time(), ": ", idx, " sensor time regularization completed!\n", round(difftime(Sys.time(), startTime.time_regularization, units = "secs"),2)," seconds"))
     } #end for loop
     
     
@@ -288,14 +289,537 @@ compare_amrs_data = function(){
         
       }
     }
+    
+    
+    
+    
+    #####################################################################################
+    #calculate the inertial velocities for each of AMRS
+    ######################################################################################
+    #define parameter
+    #filter period in second
+    filtTime <- 30
+    #filter width
+    filtWidt <- filtTime * Freq40
+    #width of the trailing integration window; value is greater than filtWidt
+    intgWndw <- 2*filtWidt 
+    
+    message(paste0(Sys.time(), ": Calculating internal velocities"))
+    
+    for (idx in names(dskData)) {
+      if(!(idx %in% "soni")){
+        #idx <- "soniAmrs01"
+        #calculate 40Hz of accDiff/Freq
+        dskData[[idx]]$accXaxsDiffIntg <- dskData[[idx]]$accXaxsDiff/Freq40
+        dskData[[idx]]$accYaxsDiffIntg <- dskData[[idx]]$accYaxsDiff/Freq40
+        dskData[[idx]]$accZaxsDiffIntg <- dskData[[idx]]$accZaxsDiff/Freq40
+        
+        # #calculate the inertial velocities
+        # dskData[[idx]]$accXaxsDiffSum <- rollapply(data = dskData[[idx]]$accXaxsDiffIntg, width = intgWndw,
+        #                                             FUN = sum, by = 1, fill = NA, na.rm = TRUE, align = "right")
+        # dskData[[idx]]$accYaxsDiffSum <- rollapply(data = dskData[[idx]]$accYaxsDiffIntg, width = intgWndw,
+        #                                             FUN = sum, by = 1, fill = NA, na.rm = TRUE, align = "right")
+        # dskData[[idx]]$accZaxsDiffSum <- rollapply(data = dskData[[idx]]$accZaxsDiffIntg, width = intgWndw,
+        #                                             FUN = sum, by = 1, fill = NA, na.rm = TRUE, align = "right")
+        
+        #apply low filter and substract the low filter out
+        dskData[[idx]]$accXaxsDiffFilt <- dskData[[idx]]$accXaxsDiffIntg - (stats::filter(dskData[[idx]]$accXaxsDiffIntg, rep(1 / filtWidt, filtWidt), sides=2))
+        dskData[[idx]]$accYaxsDiffFilt <- dskData[[idx]]$accYaxsDiffIntg - (stats::filter(dskData[[idx]]$accYaxsDiffIntg, rep(1 / filtWidt, filtWidt), sides=2))
+        dskData[[idx]]$accZaxsDiffFilt <- dskData[[idx]]$accZaxsDiffIntg - (stats::filter(dskData[[idx]]$accZaxsDiffIntg, rep(1 / filtWidt, filtWidt), sides=2))
+        
+        
+      }
+    }
+    
+    ##########################################################################################
+    #calculate the bias (accuracy) and precision of the test units against the reference AMRS
+    ##########################################################################################
+    message(paste0(Sys.time(), ": Calculating the bias/precision of the test AMRS against the reference AMRS"))
+    out <- list()
+    
+    dataBgn <-1
+    dataEnd <-length(dskData$soniAmrs01$accXaxs)
+    testVar <- c("accXaxsDiffIntg", "accYaxsDiffIntg", "accZaxsDiffIntg",
+                 "accXaxsDiffFilt", "accYaxsDiffFilt", "accZaxsDiffFilt",
+                 "angXaxsDeg", "angYaxsDeg", "angZaxsDeg",
+                 "avelXaxsDeg", "avelYaxsDeg", "avelZaxsDeg" )
+    
+    sens <- c("soniAmrs02", "soniAmrs03")
+    
+    #convert unit of ang from rad to deg for the reference sensor
+    dskData$soniAmrs01$angXaxsDeg <- eddy4R.base::def.unit.conv(data = dskData$soniAmrs01$angXaxs, unitFrom = "rad", unitTo = "deg", MethGc = FALSE)
+    dskData$soniAmrs01$angYaxsDeg <- eddy4R.base::def.unit.conv(data = dskData$soniAmrs01$angYaxs, unitFrom = "rad", unitTo = "deg", MethGc = FALSE)
+    dskData$soniAmrs01$angZaxsDeg <- eddy4R.base::def.unit.conv(data = dskData$soniAmrs01$angZaxs, unitFrom = "rad", unitTo = "deg", MethGc = FALSE)
+    #convert unit of angular rate from rad s-1 to deg s-1 for the reference sensor
+    dskData$soniAmrs01$avelXaxsDeg <- eddy4R.base::def.unit.conv(data = dskData$soniAmrs01$avelXaxs, unitFrom = "rad s-1", unitTo = "deg s-1", MethGc = FALSE)
+    dskData$soniAmrs01$avelYaxsDeg <- eddy4R.base::def.unit.conv(data = dskData$soniAmrs01$avelYaxs, unitFrom = "rad s-1", unitTo = "deg s-1", MethGc = FALSE)
+    dskData$soniAmrs01$avelZaxsDeg <- eddy4R.base::def.unit.conv(data = dskData$soniAmrs01$avelZaxs, unitFrom = "rad s-1", unitTo = "deg s-1", MethGc = FALSE)
+    
+    for (idxSens in sens){
+      #convert unit of ang from rad to deg
+      dskData[[idxSens]]$angXaxsDeg <- eddy4R.base::def.unit.conv(data = dskData[[idxSens]]$angXaxs, unitFrom = "rad", unitTo = "deg", MethGc = FALSE)
+      dskData[[idxSens]]$angYaxsDeg <- eddy4R.base::def.unit.conv(data = dskData[[idxSens]]$angYaxs, unitFrom = "rad", unitTo = "deg", MethGc = FALSE)
+      dskData[[idxSens]]$angZaxsDeg <- eddy4R.base::def.unit.conv(data = dskData[[idxSens]]$angZaxs, unitFrom = "rad", unitTo = "deg", MethGc = FALSE)
+      #convert unit of angular rate from rad s-1 to deg s-1
+      dskData[[idxSens]]$avelXaxsDeg <- eddy4R.base::def.unit.conv(data = dskData[[idxSens]]$avelXaxs, unitFrom = "rad s-1", unitTo = "deg s-1", MethGc = FALSE)
+      dskData[[idxSens]]$avelYaxsDeg <- eddy4R.base::def.unit.conv(data = dskData[[idxSens]]$avelYaxs, unitFrom = "rad s-1", unitTo = "deg s-1", MethGc = FALSE)
+      dskData[[idxSens]]$avelZaxsDeg <- eddy4R.base::def.unit.conv(data = dskData[[idxSens]]$avelZaxs, unitFrom = "rad s-1", unitTo = "deg s-1", MethGc = FALSE)
+      
+      for (idxVar in testVar){
+        out[[idxSens]][[idxVar]] <- eddy4R.base::def.rmsd.diff.prcs.rsq(refe=dskData$soniAmrs01[[idxVar]][dataBgn:dataEnd],
+                                                                        test=dskData[[idxSens]][[idxVar]][dataBgn:dataEnd],
+                                                                        Perc = FALSE,Deba=NULL, DebaRltv=FALSE)  
+      }
+      # TODO Pull out accuracy
+    }
+    
+    stats.soniAmrs02 <- data.table()
+    
+    # acc___axsDiffIntg
+    stats.soniAmrs02$accXaxsDiffIntg.rmsd      <- out$soniAmrs02$accXaxsDiffIntg[1]
+    stats.soniAmrs02$accXaxsDiffIntg.diffMean  <- out$soniAmrs02$accXaxsDiffIntg[2]
+    stats.soniAmrs02$accXaxsDiffIntg.prcs      <- out$soniAmrs02$accXaxsDiffIntg[3]
+    stats.soniAmrs02$accXaxsDiffIntg.rsq       <- out$soniAmrs02$accXaxsDiffIntg[4]
+    stats.soniAmrs02$accXaxsDiffIntg.sample    <- out$soniAmrs02$accXaxsDiffIntg[5]
+    
+    stats.soniAmrs02$accZaxsDiffIntg.rmsd      <- out$soniAmrs02$accZaxsDiffIntg[1]
+    stats.soniAmrs02$accZaxsDiffIntg.diffMean  <- out$soniAmrs02$accZaxsDiffIntg[2]
+    stats.soniAmrs02$accZaxsDiffIntg.prcs      <- out$soniAmrs02$accZaxsDiffIntg[3]
+    stats.soniAmrs02$accZaxsDiffIntg.rsq       <- out$soniAmrs02$accZaxsDiffIntg[4]
+    stats.soniAmrs02$accZaxsDiffIntg.sample    <- out$soniAmrs02$accZaxsDiffIntg[5]
+    
+    stats.soniAmrs02$accYaxsDiffIntg.rmsd      <- out$soniAmrs02$accYaxsDiffIntg[1]
+    stats.soniAmrs02$accYaxsDiffIntg.diffMean  <- out$soniAmrs02$accYaxsDiffIntg[2]
+    stats.soniAmrs02$accYaxsDiffIntg.prcs      <- out$soniAmrs02$accYaxsDiffIntg[3]
+    stats.soniAmrs02$accYaxsDiffIntg.rsq       <- out$soniAmrs02$accYaxsDiffIntg[4]
+    stats.soniAmrs02$accYaxsDiffIntg.sample    <- out$soniAmrs02$accYaxsDiffIntg[5]
+    
+    # acc___axsDiffFilt
+    stats.soniAmrs02$accXaxsDiffFilt.rmsd      <- out$soniAmrs02$accXaxsDiffFilt[1]
+    stats.soniAmrs02$accXaxsDiffFilt.diffMean  <- out$soniAmrs02$accXaxsDiffFilt[2]
+    stats.soniAmrs02$accXaxsDiffFilt.prcs      <- out$soniAmrs02$accXaxsDiffFilt[3]
+    stats.soniAmrs02$accXaxsDiffFilt.rsq       <- out$soniAmrs02$accXaxsDiffFilt[4]
+    stats.soniAmrs02$accXaxsDiffFilt.sample    <- out$soniAmrs02$accXaxsDiffFilt[5]
+    
+    stats.soniAmrs02$accYaxsDiffFilt.rmsd      <- out$soniAmrs02$accYaxsDiffFilt[1]
+    stats.soniAmrs02$accYaxsDiffFilt.diffMean  <- out$soniAmrs02$accYaxsDiffFilt[2]
+    stats.soniAmrs02$accYaxsDiffFilt.prcs      <- out$soniAmrs02$accYaxsDiffFilt[3]
+    stats.soniAmrs02$accYaxsDiffFilt.rsq       <- out$soniAmrs02$accYaxsDiffFilt[4]
+    stats.soniAmrs02$accYaxsDiffFilt.sample    <- out$soniAmrs02$accYaxsDiffFilt[5]
+    
+    stats.soniAmrs02$accZaxsDiffFilt.rmsd      <- out$soniAmrs02$accZaxsDiffFilt[1]
+    stats.soniAmrs02$accZaxsDiffFilt.diffMean  <- out$soniAmrs02$accZaxsDiffFilt[2]
+    stats.soniAmrs02$accZaxsDiffFilt.prcs      <- out$soniAmrs02$accZaxsDiffFilt[3]
+    stats.soniAmrs02$accZaxsDiffFilt.rsq       <- out$soniAmrs02$accZaxsDiffFilt[4]
+    stats.soniAmrs02$accZaxsDiffFilt.sample    <- out$soniAmrs02$accZaxsDiffFilt[5]
+    
+    # ang___axsDeg
+    stats.soniAmrs02$angYaxsDeg.rmsd      <- out$soniAmrs02$angYaxsDeg[1]
+    stats.soniAmrs02$angYaxsDeg.diffMean  <- out$soniAmrs02$angYaxsDeg[2]
+    stats.soniAmrs02$angYaxsDeg.prcs      <- out$soniAmrs02$angYaxsDeg[3]
+    stats.soniAmrs02$angYaxsDeg.rsq       <- out$soniAmrs02$angYaxsDeg[4]
+    stats.soniAmrs02$angYaxsDeg.sample    <- out$soniAmrs02$angYaxsDeg[5]
+    
+    stats.soniAmrs02$angXaxsDeg.rmsd      <- out$soniAmrs02$angXaxsDeg[1]
+    stats.soniAmrs02$angXaxsDeg.diffMean  <- out$soniAmrs02$angXaxsDeg[2]
+    stats.soniAmrs02$angXaxsDeg.prcs      <- out$soniAmrs02$angXaxsDeg[3]
+    stats.soniAmrs02$angXaxsDeg.rsq       <- out$soniAmrs02$angXaxsDeg[4]
+    stats.soniAmrs02$angXaxsDeg.sample    <- out$soniAmrs02$angXaxsDeg[5]
+    
+    stats.soniAmrs02$angZaxsDeg.rmsd      <- out$soniAmrs02$angZaxsDeg[1]
+    stats.soniAmrs02$angZaxsDeg.diffMean  <- out$soniAmrs02$angZaxsDeg[2]
+    stats.soniAmrs02$angZaxsDeg.prcs      <- out$soniAmrs02$angZaxsDeg[3]
+    stats.soniAmrs02$angZaxsDeg.rsq       <- out$soniAmrs02$angZaxsDeg[4]
+    stats.soniAmrs02$angZaxsDeg.sample    <- out$soniAmrs02$angZaxsDeg[5]
+    
+    # avel___axsDeg
+    stats.soniAmrs02$avelXaxsDeg.rmsd<- out$soniAmrs02$avelXaxsDeg[1]
+    stats.soniAmrs02$avelXaxsDeg.diffMean<- out$soniAmrs02$avelXaxsDeg[2]
+    stats.soniAmrs02$avelXaxsDeg.prcs<- out$soniAmrs02$avelXaxsDeg[3]
+    stats.soniAmrs02$avelXaxsDeg.rsq<- out$soniAmrs02$avelXaxsDeg[4]
+    stats.soniAmrs02$avelXaxsDeg.sample<- out$soniAmrs02$avelXaxsDeg[5]
+    
+    stats.soniAmrs02$avelYaxsDeg.rmsd      <- out$soniAmrs02$avelYaxsDeg[1]
+    stats.soniAmrs02$avelYaxsDeg.diffMean  <- out$soniAmrs02$avelYaxsDeg[2]
+    stats.soniAmrs02$avelYaxsDeg.prcs      <- out$soniAmrs02$avelYaxsDeg[3]
+    stats.soniAmrs02$avelYaxsDeg.rsq       <- out$soniAmrs02$avelYaxsDeg[4]
+    stats.soniAmrs02$avelYaxsDeg.sample    <- out$soniAmrs02$avelYaxsDeg[5]
+    
+    stats.soniAmrs02$avelZaxsDeg.rmsd      <- out$soniAmrs02$avelZaxsDeg[1]
+    stats.soniAmrs02$avelZaxsDeg.diffMean  <- out$soniAmrs02$avelZaxsDeg[2]
+    stats.soniAmrs02$avelZaxsDeg.prcs      <- out$soniAmrs02$avelZaxsDeg[3]
+    stats.soniAmrs02$avelZaxsDeg.rsq       <- out$soniAmrs02$avelZaxsDeg[4]
+    stats.soniAmrs02$avelZaxsDeg.sample    <- out$soniAmrs02$avelZaxsDeg[5]
+    
+    ############################################
+    
+    stats.reshape.1 <- stats.soniAmrs02 %>%
+      reshape2::melt() %>%
+      tidyr::separate(variable, into = c("measurement", "stat")) %>%
+      dplyr::mutate(test.date = date_i) %>% 
+      dplyr::mutate(sensor = "soniAmrs02") %>%
+      dplyr::select(sensor, test.date, measurement, stat, value)
+    
+    stats.soniAmrs03 <- data.table()
+    
+    # acc___axsDiffIntg
+    stats.soniAmrs03$accXaxsDiffIntg.rmsd      <- out$soniAmrs03$accXaxsDiffIntg[1]
+    stats.soniAmrs03$accXaxsDiffIntg.diffMean  <- out$soniAmrs03$accXaxsDiffIntg[2]
+    stats.soniAmrs03$accXaxsDiffIntg.prcs      <- out$soniAmrs03$accXaxsDiffIntg[3]
+    stats.soniAmrs03$accXaxsDiffIntg.rsq       <- out$soniAmrs03$accXaxsDiffIntg[4]
+    stats.soniAmrs03$accXaxsDiffIntg.sample    <- out$soniAmrs03$accXaxsDiffIntg[5]
+    
+    stats.soniAmrs03$accZaxsDiffIntg.rmsd      <- out$soniAmrs03$accZaxsDiffIntg[1]
+    stats.soniAmrs03$accZaxsDiffIntg.diffMean  <- out$soniAmrs03$accZaxsDiffIntg[2]
+    stats.soniAmrs03$accZaxsDiffIntg.prcs      <- out$soniAmrs03$accZaxsDiffIntg[3]
+    stats.soniAmrs03$accZaxsDiffIntg.rsq       <- out$soniAmrs03$accZaxsDiffIntg[4]
+    stats.soniAmrs03$accZaxsDiffIntg.sample    <- out$soniAmrs03$accZaxsDiffIntg[5]
+    
+    stats.soniAmrs03$accYaxsDiffIntg.rmsd      <- out$soniAmrs03$accYaxsDiffIntg[1]
+    stats.soniAmrs03$accYaxsDiffIntg.diffMean  <- out$soniAmrs03$accYaxsDiffIntg[2]
+    stats.soniAmrs03$accYaxsDiffIntg.prcs      <- out$soniAmrs03$accYaxsDiffIntg[3]
+    stats.soniAmrs03$accYaxsDiffIntg.rsq       <- out$soniAmrs03$accYaxsDiffIntg[4]
+    stats.soniAmrs03$accYaxsDiffIntg.sample    <- out$soniAmrs03$accYaxsDiffIntg[5]
+    
+    # acc___axsDiffFilt
+    stats.soniAmrs03$accXaxsDiffFilt.rmsd      <- out$soniAmrs03$accXaxsDiffFilt[1]
+    stats.soniAmrs03$accXaxsDiffFilt.diffMean  <- out$soniAmrs03$accXaxsDiffFilt[2]
+    stats.soniAmrs03$accXaxsDiffFilt.prcs      <- out$soniAmrs03$accXaxsDiffFilt[3]
+    stats.soniAmrs03$accXaxsDiffFilt.rsq       <- out$soniAmrs03$accXaxsDiffFilt[4]
+    stats.soniAmrs03$accXaxsDiffFilt.sample    <- out$soniAmrs03$accXaxsDiffFilt[5]
+    
+    stats.soniAmrs03$accYaxsDiffFilt.rmsd      <- out$soniAmrs03$accYaxsDiffFilt[1]
+    stats.soniAmrs03$accYaxsDiffFilt.diffMean  <- out$soniAmrs03$accYaxsDiffFilt[2]
+    stats.soniAmrs03$accYaxsDiffFilt.prcs      <- out$soniAmrs03$accYaxsDiffFilt[3]
+    stats.soniAmrs03$accYaxsDiffFilt.rsq       <- out$soniAmrs03$accYaxsDiffFilt[4]
+    stats.soniAmrs03$accYaxsDiffFilt.sample    <- out$soniAmrs03$accYaxsDiffFilt[5]
+    
+    stats.soniAmrs03$accZaxsDiffFilt.rmsd      <- out$soniAmrs03$accZaxsDiffFilt[1]
+    stats.soniAmrs03$accZaxsDiffFilt.diffMean  <- out$soniAmrs03$accZaxsDiffFilt[2]
+    stats.soniAmrs03$accZaxsDiffFilt.prcs      <- out$soniAmrs03$accZaxsDiffFilt[3]
+    stats.soniAmrs03$accZaxsDiffFilt.rsq       <- out$soniAmrs03$accZaxsDiffFilt[4]
+    stats.soniAmrs03$accZaxsDiffFilt.sample    <- out$soniAmrs03$accZaxsDiffFilt[5]
+    
+    # ang___axsDeg
+    stats.soniAmrs03$angYaxsDeg.rmsd      <- out$soniAmrs03$angYaxsDeg[1]
+    stats.soniAmrs03$angYaxsDeg.diffMean  <- out$soniAmrs03$angYaxsDeg[2]
+    stats.soniAmrs03$angYaxsDeg.prcs      <- out$soniAmrs03$angYaxsDeg[3]
+    stats.soniAmrs03$angYaxsDeg.rsq       <- out$soniAmrs03$angYaxsDeg[4]
+    stats.soniAmrs03$angYaxsDeg.sample    <- out$soniAmrs03$angYaxsDeg[5]
+    
+    stats.soniAmrs03$angXaxsDeg.rmsd      <- out$soniAmrs03$angXaxsDeg[1]
+    stats.soniAmrs03$angXaxsDeg.diffMean  <- out$soniAmrs03$angXaxsDeg[2]
+    stats.soniAmrs03$angXaxsDeg.prcs      <- out$soniAmrs03$angXaxsDeg[3]
+    stats.soniAmrs03$angXaxsDeg.rsq       <- out$soniAmrs03$angXaxsDeg[4]
+    stats.soniAmrs03$angXaxsDeg.sample    <- out$soniAmrs03$angXaxsDeg[5]
+    
+    stats.soniAmrs03$angZaxsDeg.rmsd      <- out$soniAmrs03$angZaxsDeg[1]
+    stats.soniAmrs03$angZaxsDeg.diffMean  <- out$soniAmrs03$angZaxsDeg[2]
+    stats.soniAmrs03$angZaxsDeg.prcs      <- out$soniAmrs03$angZaxsDeg[3]
+    stats.soniAmrs03$angZaxsDeg.rsq       <- out$soniAmrs03$angZaxsDeg[4]
+    stats.soniAmrs03$angZaxsDeg.sample    <- out$soniAmrs03$angZaxsDeg[5]
+    
+    # avel___axsDeg
+    stats.soniAmrs03$avelXaxsDeg.rmsd      <- out$soniAmrs03$avelXaxsDeg[1]
+    stats.soniAmrs03$avelXaxsDeg.diffMean  <- out$soniAmrs03$avelXaxsDeg[2]
+    stats.soniAmrs03$avelXaxsDeg.prcs      <- out$soniAmrs03$avelXaxsDeg[3]
+    stats.soniAmrs03$avelXaxsDeg.rsq       <- out$soniAmrs03$avelXaxsDeg[4]
+    stats.soniAmrs03$avelXaxsDeg.sample    <- out$soniAmrs03$avelXaxsDeg[5]
+    
+    stats.soniAmrs03$avelYaxsDeg.rmsd      <- out$soniAmrs03$avelYaxsDeg[1]
+    stats.soniAmrs03$avelYaxsDeg.diffMean  <- out$soniAmrs03$avelYaxsDeg[2]
+    stats.soniAmrs03$avelYaxsDeg.prcs      <- out$soniAmrs03$avelYaxsDeg[3]
+    stats.soniAmrs03$avelYaxsDeg.rsq       <- out$soniAmrs03$avelYaxsDeg[4]
+    stats.soniAmrs03$avelYaxsDeg.sample    <- out$soniAmrs03$avelYaxsDeg[5]
+    
+    stats.soniAmrs03$avelZaxsDeg.rmsd      <- out$soniAmrs03$avelZaxsDeg[1]
+    stats.soniAmrs03$avelZaxsDeg.diffMean  <- out$soniAmrs03$avelZaxsDeg[2]
+    stats.soniAmrs03$avelZaxsDeg.prcs      <- out$soniAmrs03$avelZaxsDeg[3]
+    stats.soniAmrs03$avelZaxsDeg.rsq       <- out$soniAmrs03$avelZaxsDeg[4]
+    stats.soniAmrs03$avelZaxsDeg.sample    <- out$soniAmrs03$avelZaxsDeg[5]
 
+    ##########################################################################################################
+    #calculate resolution
+    ##########################################################################################################\
+    message(paste0(Sys.time(), ": Calculating resolution"))
+    reso <- list()
+    sens <- c("soniAmrs01", "soniAmrs02", "soniAmrs03")
+    testVar <- c("angXaxsDeg", "angYaxsDeg", "angZaxsDeg",
+                 "avelXaxsDeg", "avelYaxsDeg", "avelZaxsDeg" )
+    for (idxSens in sens){
+      for (idxVar in testVar){
+        reso[[idxSens]][[idxVar]] <- as.data.frame(diff(dskData[[idxSens]][[idxVar]][dataBgn:dataEnd], lag =1, differences =1, na.rm = T))
+        colnames(reso[[idxSens]][[idxVar]]) <- idxVar
+        reso[[idxSens]][[idxVar]][[idxVar]] <- abs(reso[[idxSens]][[idxVar]][[idxVar]])
+        #plot histogram
+        if (idxVar %in% c("angXaxsDeg", "angYaxsDeg", "angZaxsDeg")) {
+          xlimMax <- 0.1
+        }else {
+          xlimMax <- 0.5
+        }
+        png(filename = paste0(here(), "/data/2021_AMRS_Round_3/plots/histReso_", idxSens,idxVar,".png"))
+        hist(reso[[idxSens]][[idxVar]][[idxVar]], breaks = 500, xlim = c(0,xlimMax), xlab = idxVar, main = idxSens)
+        dev.off()
+      }
+    }
+    
+    ### soniAmrs01 Tidying
+    message(paste0(Sys.time(), ": Tidying soniAmrs01 reso data..."))
+    
+    stats.soniAmrs01 <- data.table()
+    
+    # Grab the median resolution
+    stats.soniAmrs01$angXaxsDeg.reso <- summary(reso$soniAmrs01$angXaxsDeg)[3] 
+    stats.soniAmrs01$angYaxsDeg.reso <- summary(reso$soniAmrs01$angYaxsDeg)[3] 
+    stats.soniAmrs01$angZaxsDeg.reso <- summary(reso$soniAmrs01$angZaxsDeg)[3] 
+    stats.soniAmrs01$avelXaxsDeg.reso <- summary(reso$soniAmrs01$avelXaxsDeg)[3] 
+    stats.soniAmrs01$avelYaxsDeg.reso <- summary(reso$soniAmrs01$avelYaxsDeg)[3] 
+    stats.soniAmrs01$avelZaxsDeg.reso <- summary(reso$soniAmrs01$avelZaxsDeg)[3] 
+    
+    # Tidy the data a little
+    stats.soniAmrs01 <- stats.soniAmrs01 %>%
+      tidyr::separate(angXaxsDeg.reso, into = c("stat","angXaxsDeg.reso"), sep = ":") %>%
+      tidyr::separate(angYaxsDeg.reso, into = c("stat","angYaxsDeg.reso"), sep = ":") %>%
+      tidyr::separate(angZaxsDeg.reso, into = c("stat","angZaxsDeg.reso"), sep = ":") %>%
+      tidyr::separate(avelXaxsDeg.reso, into = c("stat","avelXaxsDeg.reso"), sep = ":") %>%
+      tidyr::separate(avelYaxsDeg.reso, into = c("stat","avelYaxsDeg.reso"), sep = ":") %>%
+      tidyr::separate(avelZaxsDeg.reso, into = c("stat","avelZaxsDeg.reso"), sep = ":") %>%
+      dplyr::select(-stat)
+    
+    # Transpose the data
+    stats.soniAmrs01.reshape <- data.table::as.data.table(stats.soniAmrs01) %>%
+      data.table::transpose()
+    
+    # Name the values - tidy style
+    stats.soniAmrs01.reshape$measurement <- colnames(stats.soniAmrs01)
+    names(stats.soniAmrs01.reshape) <- c("value", "measurement")
+    
+    # Finalize the data
+    stats.soniAmrs01.reshape <- stats.soniAmrs01.reshape %>%
+      dplyr::mutate(test.date = date_i) %>% 
+      dplyr::mutate(sensor = "soniAmrs01") %>%
+      tidyr::separate(measurement, into = c("measurement", "stat")) %>%
+      dplyr::select(sensor, test.date, measurement, stat, value)
+    
+    ### soniAmrs02 Tidying
+    message(paste0(Sys.time(), ": Tidying soniAmrs02 reso data..."))
+    
+    stats.soniAmrs02.reso <- data.table()
+    
+    # Grab the median resolution
+    stats.soniAmrs02.reso$angXaxsDeg.reso <- summary(reso$soniAmrs02$angXaxsDeg)[3] 
+    stats.soniAmrs02.reso$angYaxsDeg.reso <- summary(reso$soniAmrs02$angYaxsDeg)[3] 
+    stats.soniAmrs02.reso$angZaxsDeg.reso <- summary(reso$soniAmrs02$angZaxsDeg)[3] 
+    stats.soniAmrs02.reso$avelXaxsDeg.reso <- summary(reso$soniAmrs02$avelXaxsDeg)[3] 
+    stats.soniAmrs02.reso$avelYaxsDeg.reso <- summary(reso$soniAmrs02$avelYaxsDeg)[3] 
+    stats.soniAmrs02.reso$avelZaxsDeg.reso <- summary(reso$soniAmrs02$avelZaxsDeg)[3] 
+    
+    # Tidy the data a little
+    stats.soniAmrs02.reso <- stats.soniAmrs02.reso %>%
+      tidyr::separate(angXaxsDeg.reso, into = c("stat","angXaxsDeg.reso"), sep = ":") %>%
+      tidyr::separate(angYaxsDeg.reso, into = c("stat","angYaxsDeg.reso"), sep = ":") %>%
+      tidyr::separate(angZaxsDeg.reso, into = c("stat","angZaxsDeg.reso"), sep = ":") %>%
+      tidyr::separate(avelXaxsDeg.reso, into = c("stat","avelXaxsDeg.reso"), sep = ":") %>%
+      tidyr::separate(avelYaxsDeg.reso, into = c("stat","avelYaxsDeg.reso"), sep = ":") %>%
+      tidyr::separate(avelZaxsDeg.reso, into = c("stat","avelZaxsDeg.reso"), sep = ":") %>%
+      dplyr::select(-stat)
+    
+    # Transpose the data
+    stats.soniAmrs02.reso.reshape <- data.table::as.data.table(stats.soniAmrs02.reso) %>%
+      data.table::transpose()
+    
+    # Name the values - tidy style
+    stats.soniAmrs02.reso.reshape$measurement <- colnames(stats.soniAmrs02.reso)
+    names(stats.soniAmrs02.reso.reshape) <- c("value", "measurement")
+    
+    # Finalize the data
+    stats.soniAmrs02.reso.reshape <- stats.soniAmrs02.reso.reshape %>%
+      dplyr::mutate(test.date = date_i) %>% 
+      dplyr::mutate(sensor = "soniAmrs02") %>%
+      tidyr::separate(measurement, into = c("measurement", "stat")) %>%
+      dplyr::select(sensor, test.date, measurement, stat, value)
+    
+    ### soniAmrs3 Tidying
+    message(paste0(Sys.time(), ": Tidying soniAmrs03 reso data...") )
+    
+    stats.soniAmrs03.reso <- data.table()
+    
+    # Grab the median resolution
+    stats.soniAmrs03.reso$angXaxsDeg.reso <- summary(reso$soniAmrs03$angXaxsDeg)[3] 
+    stats.soniAmrs03.reso$angYaxsDeg.reso <- summary(reso$soniAmrs03$angYaxsDeg)[3] 
+    stats.soniAmrs03.reso$angZaxsDeg.reso <- summary(reso$soniAmrs03$angZaxsDeg)[3] 
+    stats.soniAmrs03.reso$avelXaxsDeg.reso <- summary(reso$soniAmrs03$avelXaxsDeg)[3] 
+    stats.soniAmrs03.reso$avelYaxsDeg.reso <- summary(reso$soniAmrs03$avelYaxsDeg)[3] 
+    stats.soniAmrs03.reso$avelZaxsDeg.reso <- summary(reso$soniAmrs03$avelZaxsDeg)[3] 
+    
+    # Tidy the data a little
+    stats.soniAmrs03.reso <- stats.soniAmrs03.reso %>%
+      tidyr::separate(angXaxsDeg.reso, into = c("stat","angXaxsDeg.reso"), sep = ":") %>%
+      tidyr::separate(angYaxsDeg.reso, into = c("stat","angYaxsDeg.reso"), sep = ":") %>%
+      tidyr::separate(angZaxsDeg.reso, into = c("stat","angZaxsDeg.reso"), sep = ":") %>%
+      tidyr::separate(avelXaxsDeg.reso, into = c("stat","avelXaxsDeg.reso"), sep = ":") %>%
+      tidyr::separate(avelYaxsDeg.reso, into = c("stat","avelYaxsDeg.reso"), sep = ":") %>%
+      tidyr::separate(avelZaxsDeg.reso, into = c("stat","avelZaxsDeg.reso"), sep = ":") %>%
+      dplyr::select(-stat)
+    
+    # Transpose the data
+    stats.soniAmrs03.reso.reshape <- data.table::as.data.table(stats.soniAmrs03.reso) %>%
+      data.table::transpose()
+    
+    # Name the values - tidy style
+    stats.soniAmrs03.reso.reshape$measurement <- colnames(stats.soniAmrs03.reso)
+    names(stats.soniAmrs03.reso.reshape) <- c("value", "measurement")
+    
+    # Finalize the data
+    stats.soniAmrs03.reso.reshape <- stats.soniAmrs03.reso.reshape %>%
+      dplyr::mutate(test.date = date_i) %>% 
+      dplyr::mutate(sensor = "soniAmrs03") %>%
+      tidyr::separate(measurement, into = c("measurement", "stat")) %>%
+      dplyr::select(sensor, test.date, measurement, stat, value)
+    
+    ############################
+    
+    stats.reshape.2 <- stats.soniAmrs03 %>%
+      reshape2::melt() %>%
+      tidyr::separate(variable, into = c("measurement", "stat")) %>%
+      dplyr::mutate(test.date = date_i) %>% 
+      dplyr::mutate(sensor = "soniAmrs03") %>%
+      dplyr::select(sensor, test.date, measurement, stat, value)
+    
+    stats.reshape.final <- data.table::rbindlist(l = list(stats.reshape.1, stats.reshape.2, stats.soniAmrs01.reshape,stats.soniAmrs02.reso.reshape,stats.soniAmrs03.reso.reshape))
+    
+    message(paste0(Sys.time(), ": Saving rmsd.diff.prcs.rsq.reso file!. . ."))
+    saveRDS(stats.reshape.final, paste0(here::here(),"/data/2021_AMRS_Round_3/stats/", date_i,".RDS"))
 
-
+    message("Data Aggregation")
+    # assign list
+    # assign list for working parameters and variables
+    wrk <- list()
+    rpt <- list()
+    #Assign list for outputs from qfqm
+    qfqm <- list()
+    
+    # begin and end time for each averaging intervals
+    avgTime <- c(60, 90, 1800)
+    #avgTime <- c(1800)
+    for (idxAvgTime in avgTime) {
+      nameTime <- paste0("avg", idxAvgTime)
+      invisible(lapply(names(dataList), function(x) {
+        if(x == "soni") {
+          wrk$idx[[nameTime]][[x]] <<-eddy4R.base::def.idx.agr(time = dataList$soni$time, PrdAgr = idxAvgTime, FreqLoca = 20)
+        }  else {  
+          wrk$idx[[nameTime]][[x]] <<- eddy4R.base::def.idx.agr(time = dataList$soniAmrs01$time, PrdAgr = idxAvgTime, FreqLoca = 40)
+        }}))
+      #number of iteration
+      iter <- max(sapply(names(wrk$idx[[nameTime]]), function(x) length(wrk$idx[[nameTime]][[x]]$idxBgn)))
+      numAgr <- 0
+      #begin: loop around aggregation interval
+      for(idxAgr in 1:iter){
+        # idxAgr <- 1
+        
+        numAgr <- numAgr + 1
+        # create a list identifier for the Aggregation loops
+        levlAgr <- paste0("numAgr", ifelse(numAgr < 10, paste0("0",numAgr) ,numAgr))
+        #assign list
+        wrk$data <- list()
+        
+        # loop around sensors
+        for(idxSens in names(dataList)){
+          #idxSens <- "soni"
+          wrk$data[[nameTime]][[idxSens]] <- dskData[[idxSens]][wrk$idx[[nameTime]][[idxSens]]$idxBgn[idxAgr]:wrk$idx[[nameTime]][[idxSens]]$idxEnd[idxAgr],]  
+        }; rm()
+        
+        #assign lists
+        #for data
+        wrk$tmp$data <- list()
+        # assemble data
+        # for soni
+        # wrk$tmp$data$soni <- data.frame(stringsAsFactors = FALSE,
+        #                                 "veloXaxsErth"     = wrk$data[[nameTime]]$soni$veloXaxs,
+        #                                 "veloYaxsErth"     = wrk$data[[nameTime]]$soni$veloYaxs, 
+        #                                 "veloZaxsErth"     = wrk$data[[nameTime]]$soni$veloZaxs,
+        #                                 "veloXaxsYaxsErth" = wrk$data[[nameTime]]$soni$veloXaxsYaxsErth,
+        #                                 "angZaxsErth"      = wrk$data[[nameTime]]$soni$angZaxsErth,
+        #                                 "tempSoni"         = wrk$data[[nameTime]]$soni$tempSoni
+        # )
+        wrk$tmp$data$soniAmrs01 <- wrk$data[[nameTime]]$soniAmrs01
+        wrk$tmp$data$soniAmrs02 <- wrk$data[[nameTime]]$soniAmrs02
+        wrk$tmp$data$soniAmrs03 <- wrk$data[[nameTime]]$soniAmrs03
+        
+        # 30-minute data products
+        # call dp01 processing, assign each result as list element numAgr in wrk$dp01
+        wrk$dp01[[nameTime]][[levlAgr]] <- eddy4R.base::wrap.dp01(
+          # assign data: data.frame or list of type numeric or integer
+          data = wrk$tmp$data,
+          # if data is a list, which list entries should be processed into Level 1 data products?
+          # defaults to NULL which expects data to be a data.frame
+          idx = c("soniAmrs01", "soniAmrs02", "soniAmrs03")
+        )
+      }
+      
+      # clean up
+      wrk$data <- NULL
+      wrk$tmp <- NULL
+      invisible(gc())
+      
+      #concatenate results
+      
+      #loop around data products
+      for(idxDp01 in names(wrk$dp01[[nameTime]][[1]])) {
+        #idxDp01 <-  names(wrk$dp01[[1]])[1]
+        #nameTime <- paste0("avg", idxAvgTime)
+        rpt$time[[nameTime]][[idxDp01]] <- data.frame(
+          timeBgn = wrk$idx[[nameTime]][[idxDp01]]$timeBgn,
+          timeEnd = wrk$idx[[nameTime]][[idxDp01]]$timeEnd
+        )[1:length(wrk$dp01[[nameTime]]),]
+        
+        rpt$data[[nameTime]][[idxDp01]] <- 
+          
+          #first call to lapply, targeting the result data.frames to be created (data sub-products: mean, min, max, vari", numSamp)
+          lapply(names(wrk$dp01[[nameTime]][[1]][[idxDp01]]), function(y)
+            
+            # second call to lapply, targeting the observations to be combined into the result data.frames
+            do.call(rbind, lapply(1:length(wrk$dp01[[nameTime]]), function(x) wrk$dp01[[nameTime]][[x]][[idxDp01]][[y]] ))
+            
+          )
+        #assign names to data.frames      
+        names(rpt$data[[nameTime]][[idxDp01]]) <- names(wrk$dp01[[nameTime]][[1]][[idxDp01]])
+        #calculate standard deviation
+        rpt$data[[nameTime]][[idxDp01]]$sd <- sqrt(rpt$data[[nameTime]][[idxDp01]]$vari)
+        
+      }
+    }
     
     
+    #convert the unit mean and sd of angle to degree
+    soniAmrs <- c("soniAmrs01", "soniAmrs02", "soniAmrs03")
+    for (idxAvg in names(rpt$data)){
+      for (idxSoniAmrs in soniAmrs){
+        #mean
+        rpt$data[[idxAvg]][[idxSoniAmrs]]$mean$angXaxsDeg <- 
+          eddy4R.base::def.unit.conv(data = rpt$data[[idxAvg]][[idxSoniAmrs]]$mean$angXaxs, unitFrom = "rad", unitTo = "deg", MethGc = FALSE)
+        rpt$data[[idxAvg]][[idxSoniAmrs]]$mean$angYaxsDeg <- 
+          eddy4R.base::def.unit.conv(data = rpt$data[[idxAvg]][[idxSoniAmrs]]$mean$angYaxs, unitFrom = "rad", unitTo = "deg", MethGc = FALSE)
+        #apply rotation before unit conversion
+        rpt$data[[idxAvg]][[idxSoniAmrs]]$mean$angZaxsDeg <- 
+          eddy4R.base::def.unit.conv(eddy4R.base::def.rot.enu.ned(angEnu = rpt$data[[idxAvg]][[idxSoniAmrs]]$mean$angZaxs), unitFrom = "rad", unitTo = "deg")$data
+        #sd 
+        rpt$data[[idxAvg]][[idxSoniAmrs]]$sd$angXaxsDeg <- 
+          eddy4R.base::def.unit.conv(data = rpt$data[[idxAvg]][[idxSoniAmrs]]$sd$angXaxs, unitFrom = "rad", unitTo = "deg", MethGc = FALSE)
+        rpt$data[[idxAvg]][[idxSoniAmrs]]$sd$angYaxsDeg <- 
+          eddy4R.base::def.unit.conv(data = rpt$data[[idxAvg]][[idxSoniAmrs]]$sd$angYaxs, unitFrom = "rad", unitTo = "deg", MethGc = FALSE)
+        rpt$data[[idxAvg]][[idxSoniAmrs]]$sd$angZaxsDeg <- 
+          eddy4R.base::def.unit.conv(data = rpt$data[[idxAvg]][[idxSoniAmrs]]$sd$angZaxs, unitFrom = "rad", unitTo = "deg", MethGc = FALSE)
+      }
+    }
+    
+    message("Saving rpt master aggregation file")
+    saveRDS(object = rpt, file = paste0(here::here(), "/data/2021_AMRS_Round_3/final_outputs/", date_i, ".RDS"))
     
     
+  
+     
   }
-  
-  
 }
+
+compare_amrs_data()
