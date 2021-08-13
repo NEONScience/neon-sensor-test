@@ -19,7 +19,8 @@ compare_amrs_data = function(){
   
   test_data_lookup = aws.s3::get_bucket_df(bucket = sensor_test_bucket, prefix = "sensor/amrs/round_3/") %>% 
     dplyr::filter(Size > 0) %>%  dplyr::filter(stringr::str_detect(string = Key, pattern = ".fst")) %>% 
-    dplyr::mutate(date = stringr::str_extract(Key, "[0-9]{4}-[0-9]{2}-[0-9]{2}"))
+    dplyr::mutate(date = stringr::str_extract(Key, "[0-9]{4}-[0-9]{2}-[0-9]{2}")) %>% 
+    dplyr::arrange(dplyr::desc(date))
   
   test_dates = unique(test_data_lookup$date)
   
@@ -691,7 +692,8 @@ compare_amrs_data = function(){
     message(paste0(Sys.time(), ": Saving rmsd.diff.prcs.rsq.reso file!. . ."))
     saveRDS(stats.reshape.final, paste0(here::here(),"/data/2021_AMRS_Round_3/stats/", date_i,".RDS"))
 
-    message("Data Aggregation")
+    message(paste0(Sys.time(), ": Aggregating data"))
+    agg_start = Sys.time()
     # assign list
     # assign list for working parameters and variables
     wrk <- list()
@@ -812,8 +814,9 @@ compare_amrs_data = function(){
           eddy4R.base::def.unit.conv(data = rpt$data[[idxAvg]][[idxSoniAmrs]]$sd$angZaxs, unitFrom = "rad", unitTo = "deg", MethGc = FALSE)
       }
     }
-    
-    message("Saving rpt master aggregation file")
+    agg_end = Sys.time()
+    message(paste0(Sys.time(), ": Aggregated in: ", round(difftime(agg_end, agg_start, units = "mins"), 2), " mins"))
+    message(paste0(Sys.time(), ": Saving rpt master aggregation file"))
     saveRDS(object = rpt, file = paste0(here::here(), "/data/2021_AMRS_Round_3/final_outputs/", date_i, ".RDS"))
     
     
