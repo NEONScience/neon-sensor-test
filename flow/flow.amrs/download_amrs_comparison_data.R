@@ -1,5 +1,5 @@
 # This script downloads data for the AMRS tests, extracts necessary testing info from the files, then uploads the condensed data to the neon-sensor-test S3 Bucket
-download_amrs_comparison_data = function(sensorID = "AMRS_01", round = "3"){
+download_amrs_comparison_data = function(sensorID = "AMRS_01", round = "3", run = "1"){
   message(paste0(Sys.time(), ": calling libraries"))
   # Library
   library(aws.s3)
@@ -18,17 +18,38 @@ download_amrs_comparison_data = function(sensorID = "AMRS_01", round = "3"){
   
   message(paste0(Sys.time(), ": reading in available test data"))
   # Logical control
-  if(sensorID == "AMRS_01"){
-    test_data_lookup = aws.s3::get_bucket_df(bucket = amrs_bucket, prefix = "AMRS_tests/int040/") %>% 
-      dplyr::filter(stringr::str_detect(string = Key, pattern = ".l0p.h5.gz") == TRUE)
-  } else if(sensorID == "AMRS_02"){
-    test_data_lookup = aws.s3::get_bucket_df(bucket = amrs_bucket, prefix = "AMRS_tests/int041/") %>% 
-      dplyr::filter(stringr::str_detect(string = Key, pattern = ".l0p.h5.gz") == TRUE)
-  } else if(sensorID == "AMRS_03"){
-    test_data_lookup = aws.s3::get_bucket_df(bucket = amrs_bucket, prefix = "AMRS_tests/dev042/") %>% 
-      dplyr::filter(stringr::str_detect(string = Key, pattern = ".l0p.h5.gz") == TRUE)
+  
+  if(run == "1"){
+  
+    if(sensorID == "AMRS_01"){
+      test_data_lookup = aws.s3::get_bucket_df(bucket = amrs_bucket, prefix = "AMRS_tests/int040/") %>% 
+        dplyr::filter(stringr::str_detect(string = Key, pattern = ".l0p.h5.gz") == TRUE)
+    } else if(sensorID == "AMRS_02"){
+      test_data_lookup = aws.s3::get_bucket_df(bucket = amrs_bucket, prefix = "AMRS_tests/int041/") %>% 
+        dplyr::filter(stringr::str_detect(string = Key, pattern = ".l0p.h5.gz") == TRUE)
+    } else if(sensorID == "AMRS_03"){
+      test_data_lookup = aws.s3::get_bucket_df(bucket = amrs_bucket, prefix = "AMRS_tests/dev042/") %>% 
+        dplyr::filter(stringr::str_detect(string = Key, pattern = ".l0p.h5.gz") == TRUE)
+    } else {
+      stop("Sensor ID not allowed, must be AMRS_01, AMRS_02, or AMRS_03")
+    }
+    
+  } else if(run == "2"){
+    
+    if(sensorID == "AMRS_01"){
+      test_data_lookup = aws.s3::get_bucket_df(bucket = amrs_bucket, prefix = "AMRS_tests/run_2/int040/") %>% 
+        dplyr::filter(stringr::str_detect(string = Key, pattern = ".l0p.h5.gz") == TRUE)
+    } else if(sensorID == "AMRS_02"){
+      test_data_lookup = aws.s3::get_bucket_df(bucket = amrs_bucket, prefix = "AMRS_tests/run_2/int041/") %>% 
+        dplyr::filter(stringr::str_detect(string = Key, pattern = ".l0p.h5.gz") == TRUE)
+    } else if(sensorID == "AMRS_03"){
+      test_data_lookup = aws.s3::get_bucket_df(bucket = amrs_bucket, prefix = "AMRS_tests/run_2/dev042/") %>% 
+        dplyr::filter(stringr::str_detect(string = Key, pattern = ".l0p.h5.gz") == TRUE)
+    } else {
+      stop("Sensor ID not allowed, must be AMRS_01, AMRS_02, or AMRS_03")
+    }
   } else {
-    stop("Sensor ID not allowed, must be AMRS_01, AMRS_02, or AMRS_03")
+    stop("Specify run = '1' or run = '2'")
   }
   
   test_folder = paste0(sensorID, "")
@@ -52,9 +73,18 @@ download_amrs_comparison_data = function(sensorID = "AMRS_01", round = "3"){
     download_url = paste0("https://", amrs_bucket, ".test-s3.data.neonscience.org/", download_s3_path)
     
     # Form Local Save Path
-    local_file_name = base::substr(test_data_lookup$Key[i], start = 19, stop = 999)
-    local_save_path = paste0(temp_dir_path, sensorID, "/", local_file_name)
+    if(run == "1"){
+      
+      local_file_name = base::substr(test_data_lookup$Key[i], start = 19, stop = 999)
+      local_save_path = paste0(temp_dir_path, sensorID, "/", local_file_name)
+    } else if(run == "2"){
+      local_file_name = base::substr(test_data_lookup$Key[i], start = 25, stop = 999)
+      local_save_path = paste0(temp_dir_path, sensorID, "/", local_file_name)
+    } else {
+      stop("Specify run = '1' or run = '2'")
+    }
     
+    # Download the zip file
     utils::download.file(url = download_url, destfile = local_save_path, quiet = TRUE)
     
     # Check files downloaded properly
@@ -100,20 +130,20 @@ download_amrs_comparison_data = function(sensorID = "AMRS_01", round = "3"){
             
             # Make data into a data frame
             data.save = data.table::data.table() 
-            data.save$accXaxs = data.out$accXaxs
+            data.save$accXaxs     = data.out$accXaxs
             data.save$accXaxsDiff = data.out$accXaxsDiff
-            data.save$accYaxs = data.out$accYaxs
+            data.save$accYaxs     = data.out$accYaxs
             data.save$accYaxsDiff = data.out$accYaxsDiff
-            data.save$accZaxs = data.out$accZaxs
+            data.save$accZaxs     = data.out$accZaxs
             data.save$accZaxsDiff = data.out$accZaxsDiff
-            data.save$angXaxs = data.out$angXaxs
-            data.save$angYaxs = data.out$angYaxs
-            data.save$angZaxs = data.out$angZaxs
-            data.save$avelXaxs = data.out$avelXaxs
-            data.save$avelYaxs = data.out$avelYaxs
-            data.save$avelZaxs = data.out$avelZaxs
-            data.save$idx = data.out$idx
-            data.save$time = data.out$time
+            data.save$angXaxs     = data.out$angXaxs
+            data.save$angYaxs     = data.out$angYaxs
+            data.save$angZaxs     = data.out$angZaxs
+            data.save$avelXaxs    = data.out$avelXaxs
+            data.save$avelYaxs    = data.out$avelYaxs
+            data.save$avelZaxs    = data.out$avelZaxs
+            data.save$idx         = data.out$idx
+            data.save$time        = data.out$time
             
             # Format time
             data.save = data.save %>% 
@@ -140,20 +170,23 @@ download_amrs_comparison_data = function(sensorID = "AMRS_01", round = "3"){
       stop("Files did not download properly...")
     }
     
-    
-    
-    
   }
   
-  
-    
-    
-   
+  # S3 UN-Connection
+  Sys.unsetenv("AWS_SECRET_ACCESS_KEY")
+  Sys.unsetenv("AWS_S3_ENDPOINT")
+  Sys.unsetenv("AWS_DEFAULT_REGION")
 }
 
-
-download_amrs_comparison_data(sensorID = "AMRS_01")
+# Download first run
+download_amrs_comparison_data(sensorID = "AMRS_01", run = "1")
 .rs.restartR()
-download_amrs_comparison_data(sensorID = "AMRS_02")
+download_amrs_comparison_data(sensorID = "AMRS_02", run = "1")
 .rs.restartR()
-download_amrs_comparison_data(sensorID = "AMRS_03")
+download_amrs_comparison_data(sensorID = "AMRS_03", run = "1")
+# Donwload second run
+download_amrs_comparison_data(sensorID = "AMRS_01", run = "2")
+.rs.restartR()
+download_amrs_comparison_data(sensorID = "AMRS_02", run = "2")
+.rs.restartR()
+download_amrs_comparison_data(sensorID = "AMRS_03", run = "2")
