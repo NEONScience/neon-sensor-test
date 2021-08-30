@@ -1,5 +1,5 @@
 # This script downloads data for the AMRS tests, extracts necessary testing info from the files, then uploads the condensed data to the neon-sensor-test S3 Bucket
-download_amrs_comparison_data = function(sensorID = "AMRS_01", round = "3", run = "1"){
+download_amrs_comparison_data = function(sensorID = "AMRS_01", round = "3", run = "3"){
   message(paste0(Sys.time(), ": calling libraries"))
   # Library
   library(aws.s3)
@@ -48,8 +48,24 @@ download_amrs_comparison_data = function(sensorID = "AMRS_01", round = "3", run 
     } else {
       stop("Sensor ID not allowed, must be AMRS_01, AMRS_02, or AMRS_03")
     }
+    
+  } else if(run == "3"){
+    
+    if(sensorID == "AMRS_01"){
+      test_data_lookup = aws.s3::get_bucket_df(bucket = amrs_bucket, prefix = "AMRS_tests/run_3/int040/") %>% 
+        dplyr::filter(stringr::str_detect(string = Key, pattern = ".l0p.h5.gz") == TRUE)
+    # } else if(sensorID == "AMRS_02"){
+    #   test_data_lookup = aws.s3::get_bucket_df(bucket = amrs_bucket, prefix = "AMRS_tests/run_3/int041/") %>% 
+    #     dplyr::filter(stringr::str_detect(string = Key, pattern = ".l0p.h5.gz") == TRUE)
+    # } else if(sensorID == "AMRS_03"){
+    #   test_data_lookup = aws.s3::get_bucket_df(bucket = amrs_bucket, prefix = "AMRS_tests/run_3/dev042/") %>% 
+    #     dplyr::filter(stringr::str_detect(string = Key, pattern = ".l0p.h5.gz") == TRUE)
+    # } else {
+    #   stop("Sensor ID not allowed, must be AMRS_01, AMRS_02, or AMRS_03")
+    # }
+    }
   } else {
-    stop("Specify run = '1' or run = '2'")
+    stop("Specify run = '1' or run = '2' or run = '3' ")
   }
   
   test_folder = paste0(sensorID, "")
@@ -80,8 +96,11 @@ download_amrs_comparison_data = function(sensorID = "AMRS_01", round = "3", run 
     } else if(run == "2"){
       local_file_name = base::substr(test_data_lookup$Key[i], start = 25, stop = 999)
       local_save_path = paste0(temp_dir_path, sensorID, "/", local_file_name)
+    } else if(run == "3"){
+      local_file_name = base::substr(test_data_lookup$Key[i], start = 25, stop = 999)
+      local_save_path = paste0(temp_dir_path, sensorID, "/", local_file_name)
     } else {
-      stop("Specify run = '1' or run = '2'")
+      stop("Specify run = '1' or run = '2' or run = '3'")
     }
     
     # Download the zip file
@@ -190,3 +209,7 @@ download_amrs_comparison_data(sensorID = "AMRS_01", run = "2")
 download_amrs_comparison_data(sensorID = "AMRS_02", run = "2")
 .rs.restartR()
 download_amrs_comparison_data(sensorID = "AMRS_03", run = "2")
+
+download_amrs_comparison_data(sensorID = "AMRS_01", run = "3")
+
+
