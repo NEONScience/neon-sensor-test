@@ -661,15 +661,15 @@ plot.stream = function(week = "1"){
 
   require(grid)
   # # Plots for presentations 
-  # gridExtra::grid.arrange(data.1[[4]], data.2[[4]], ncol=2,
-  #                         top=grid::textGrob(paste0("Direct Comparison of Li7200 (regular) and Li7200 (RS) Raw Fluxes"),
-  #                                            gp=grid::gpar(fontsize=20,font=3)),
-  #                         bottom = grid::textGrob("*",
-  #                           gp = gpar(fontface = 3, fontsize = 12),
-  #                           hjust = 1,
-  #                           x = 1
-  #                         )
-  # )
+  gridExtra::grid.arrange(data.1[[4]], data.2[[4]], ncol=2,
+                          top=grid::textGrob(paste0("Direct Comparison of Li7200 (regular) and Li7200 (RS) Raw Fluxes"),
+                                             gp=grid::gpar(fontsize=20,font=3)),
+                          bottom = grid::textGrob("*",
+                            gp = gpar(fontface = 3, fontsize = 12),
+                            hjust = 1,
+                            x = 1
+                          )
+  )
   # 
   # 
   # gridExtra::grid.arrange(data.1[[5]], data.2[[5]], ncol=2,
