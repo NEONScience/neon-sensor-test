@@ -18,7 +18,7 @@ check_qfqm_results = function(the_run = 1){
              "AWS_S3_ENDPOINT"       = "neonscience.org",
              "AWS_DEFAULT_REGION"    = "test-s3.data")
   
-  qfqm_report_keys = aws.s3::get_bucket_df(bucket = amrs_bucket, prefix = "AMRS_tests") %>% 
+  qfqm_report_keys = aws.s3::get_bucket_df(bucket = amrs_bucket, prefix = "AMRS_tests", max = Inf) %>% 
     dplyr::select(Key) %>% 
     dplyr::filter(stringr::str_detect(string = Key, pattern = "qfqm") == TRUE) %>% # Filter to just QFQM
     dplyr::filter(stringr::str_detect(string = Key, pattern = ".rds") == TRUE) %>% # Filter to just .rds
@@ -97,7 +97,7 @@ check_qfqm_results = function(the_run = 1){
       ggplot2::scale_x_date(date_breaks = "1 day") +
       ggplot2::theme(axis.text.x = ggplot2::element_text(angle = 270), text = ggplot2::element_text(size = 15), legend.position = "top") +
       ggplot2::labs(y = "Percent of Total Quality Flags", x = "", title = base::paste0("AMRS Round 3 Tests: QFQM Report Results for Run ", the_run), fill = "Sensor",caption = "Note, if there were 0 flags for the day, no bar will be present") +
-      ggplot2::facet_wrap(~sensor)
+      ggplot2::facet_wrap(~sensor, ncol = 1)
   )
 }
 check_qfqm_results(the_run = 3)
