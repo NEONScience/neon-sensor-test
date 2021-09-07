@@ -17,9 +17,14 @@ compare_amrs_data = function(){
   
   sensor_test_bucket = "neon-sensor-test"
   
+  `%not%` = Negate(`%in%`)
+  dates_already_procesed = data.table::data.table(date = list.files(path = "./data/2021_AMRS_Round_3/final_outputs/") ) %>% 
+    dplyr::mutate(date = stringr::str_remove(string = date, pattern = ".RDS"))
+  
   test_data_lookup = aws.s3::get_bucket_df(bucket = sensor_test_bucket, prefix = "sensor/amrs/round_3/") %>% 
     dplyr::filter(Size > 0) %>%  dplyr::filter(stringr::str_detect(string = Key, pattern = ".fst")) %>% 
     dplyr::mutate(date = stringr::str_extract(Key, "[0-9]{4}-[0-9]{2}-[0-9]{2}")) %>% 
+    dplyr::filter(date %not% dates_already_procesed$date) %>% 
     dplyr::arrange(dplyr::desc(date))
   
   test_dates = unique(test_data_lookup$date)
@@ -28,6 +33,8 @@ compare_amrs_data = function(){
   for(i in base::seq_along(test_dates)){
     
     date_i = test_dates[i]
+    
+    message(date_i)
     
     # Lookup files for ith date
     date_file_lookup = aws.s3::get_bucket_df(bucket = sensor_test_bucket, prefix = paste0("sensor/amrs/round_3/", date_i)) %>% 
