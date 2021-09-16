@@ -1,0 +1,843 @@
+---
+title: "AMRS Intercomparison Round 2"
+author:
+  - name: Kevin Styers
+  - name: Natchya Durden
+  - name: Stefan Metzger
+  - name: Hongyan Luo
+date: "`r Sys.Date()`"
+output:
+  distill::distill_article:
+    toc: true
+    toc_float: true
+    toc_depth: 1
+---
+
+<!-- Purpose
+Background
+Recommendation
+	Text describing our recommenadtion/decision, general setting proved to work better in our testing
+Summary Results
+Statistics
+Present to SAE group for some final input from rest of the team.
+	Monday Morning 8:30AM 2020-10-19
+	Practice presenting the results
+	See if anything else is needed.
+To Report to IS-IPT on 2020-10-21
+	Hongyan to give quick background
+	Kevin to shortly present final results/recommendation
+	
+	-->
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, error = FALSE, warning = FALSE, message = FALSE, layout = "l-page")
+library(distill)
+library(ggplot2)
+library(ggforce)
+library(dplyr)
+library(data.table)
+library(kableExtra)
+library(gridExtra)
+library(grid)
+```
+
+
+```{r importData, echo=FALSE, eval=TRUE}
+bigData <- base::readRDS("~/eddy/neon-sensor-test/data/2021_AMRS_Round_3/all_amrs_data.RDS")
+soniAmrs01_data <- bigData$avg60 %>%
+  dplyr::mutate(sensor = "soniAmrs01") %>%
+  dplyr::mutate(firmware_version = "01.04.01")
+soniAmrs02_data <- bigData$avg60 %>%
+  dplyr::mutate(sensor = "soniAmrs02") %>%
+  dplyr::mutate(firmware_version = ifelse(test = run == 1, yes = "01.04.01", no = NA)) %>% 
+  dplyr::mutate(firmware_version = ifelse(test = run == 2, yes = "01.04.05", no = firmware_version)) %>% 
+  dplyr::mutate(firmware_version = ifelse(test = run == 3, yes = "01.05.01", no = firmware_version))  
+soniAmrs03_data <- bigData$avg60 %>%
+  dplyr::mutate(sensor = "soniAmrs03") %>%
+  dplyr::mutate(firmware_version = ifelse(test = run == 1, yes = "01.04.01", no = NA)) %>% 
+  dplyr::mutate(firmware_version = ifelse(test = run == 2, yes = "01.05.01", no = firmware_version)) %>% 
+  dplyr::mutate(firmware_version = ifelse(test = run == 3, yes = "01.04.05", no = firmware_version))  
+
+# Calculate start end for each run
+run_1_duration_dt = soniAmrs01_data %>% 
+  dplyr::filter(run == 1) 
+run_1_duration = c(min(run_1_duration_dt$timeBgn), max(run_1_duration_dt$timeBgn))
+run_2_duration_dt = soniAmrs01_data %>% 
+  dplyr::filter(run == 2) 
+run_2_duration = c(min(run_2_duration_dt$timeBgn), max(run_2_duration_dt$timeBgn))
+run_3_duration_dt = soniAmrs01_data %>% 
+  dplyr::filter(run == 3) 
+run_3_duration = c(min(run_3_duration_dt$timeBgn), max(run_3_duration_dt$timeBgn))
+
+soniAmrs_plot_data <- data.table::rbindlist(l = list(soniAmrs01_data, soniAmrs02_data, soniAmrs03_data))
+```
+
+# Executive Summary  
+
+An intercomparison analysis was performed to access the potential differences between AMRS values when configured with a general or a low-mag filter setting. From the intercomparision analysis we can infer that the general setting will better serve NEON Science's purposes as it performed better during the testing period across both test sensors as well as the control.  
+
+*Recommendation:*  
+
+> We propose that going forward all AMRS will be configured with the "general" setting.   
+We expected the largest difference to present itself on the Azimuth angle measurement and the plot below demonstates the performance of each setting with regards to this measurement with the general filter setting having the least amount of noise across all three sensors.  
+
+```{r, layout = "l-page", echo = FALSE}
+# The first set goes from  03/23/2020 07:00:00 to 04/01/2020 11:59:59
+experiment1.start <- as.POSIXct("2020-03-23", format = "%Y-%m-%d", origin = "1970-01-01")
+experiment1.end   <- as.POSIXct("2020-04-02", format = "%Y-%m-%d", origin = "1970-01-01")
+# The second set is from   04/02/2020 00:00:00 to 04/11/2020 11:59:59
+experiment2.start <- as.POSIXct("2020-04-02", format = "%Y-%m-%d", origin = "1970-01-01")
+experiment2.end   <- as.POSIXct("2020-04-12", format = "%Y-%m-%d", origin = "1970-01-01")
+ang.plot <- data.table::data.table()
+ang.plot$time   <- as.POSIXct(bigData$soniAmrs01_mean_avg60$timeBgn, format="%Y-%m-%d %H:%M:%OS")
+ang.plot$amrs01.angX <- as.numeric(bigData$soniAmrs01_mean_avg60$angXaxsDeg)
+ang.plot$amrs02.angX <- as.numeric(bigData$soniAmrs02_mean_avg60$angXaxsDeg)
+ang.plot$amrs03.angX <- as.numeric(bigData$soniAmrs03_mean_avg60$angXaxsDeg)
+ang.plot$amrs01.angY <- as.numeric(bigData$soniAmrs01_mean_avg60$angYaxsDeg)
+ang.plot$amrs02.angY <- as.numeric(bigData$soniAmrs02_mean_avg60$angYaxsDeg)
+ang.plot$amrs03.angY <- as.numeric(bigData$soniAmrs03_mean_avg60$angYaxsDeg)
+ang.plot$amrs01.angZ <- as.numeric(bigData$soniAmrs01_mean_avg60$angZaxsDeg)
+ang.plot$amrs02.angZ <- as.numeric(bigData$soniAmrs02_mean_avg60$angZaxsDeg)
+ang.plot$amrs03.angZ <- as.numeric(bigData$soniAmrs03_mean_avg60$angZaxsDeg)
+ang.plot.nona <- ang.plot %>%
+  na.omit()
+ang.reshape <- ang.plot.nona %>%
+  reshape2::melt(id.var = "time") %>%
+  dplyr::group_by(variable) %>%
+  tidyr::separate(variable, into = c("sensor","stream"))
+p1.ang.z <- ggplot(ang.reshape %>% dplyr::filter(stream == "angZ") %>% dplyr::filter(sensor == "amrs01")) +
+  annotate("rect", xmin = experiment1.start, xmax = experiment2.end, ymin = 330, ymax = 347, alpha = 0.75, fill = "black")+
+  geom_point(alpha = .5, aes(x = time, y = value), color = "violet", shape = 1) +
+  geom_hline(yintercept = 337.47, linetype = "dashed") +
+  scale_x_datetime(date_breaks = "2 days", date_labels = "%b-%d") +
+  scale_y_continuous(breaks = scales::pretty_breaks(n = 6))+
+  theme(axis.text.x = element_text(angle = 270), legend.position = "none") +
+  labs(title = "", y = "Degrees", x = "") +
+  ylim(330, 347) # +
+  # facet_wrap(~sensor, scales = "free_y")
+p2.ang.z <- ggplot(ang.reshape %>% dplyr::filter(stream == "angZ") %>% dplyr::filter(sensor == "amrs02")) +
+  annotate("rect", xmin = experiment1.start, xmax = experiment1.end, ymin = 330, ymax = 347, alpha = 0.75, fill = "black")+
+  annotate("rect", xmin = experiment2.start, xmax = experiment2.end, ymin = 330, ymax = 347, alpha = 0.75, fill = "white")+
+  geom_point(alpha = .5, aes(x = time, y = value), color = "firebrick", shape = 1) +
+  geom_hline(yintercept = 337.47, linetype = "dashed") +
+  scale_x_datetime(date_breaks = "2 days", date_labels = "%b-%d") +
+  scale_y_continuous(breaks = scales::pretty_breaks(n = 6))+
+  theme(axis.text.x = element_text(angle = 270), legend.position = "none") +
+  ylim(330, 347) +
+  labs(title = "", y = "", x = "") #+
+  # facet_wrap(~sensor, scales = "free_y")
+p3.ang.z <- ggplot(ang.reshape %>% dplyr::filter(stream == "angZ") %>% dplyr::filter(sensor == "amrs03")) +
+  annotate("rect", xmin = experiment1.start, xmax = experiment1.end, ymin = 330, ymax = 347, alpha = 0.75, fill = "white")+
+  annotate("rect", xmin = experiment2.start, xmax = experiment2.end, ymin = 330, ymax = 347, alpha = 0.75, fill = "black")+
+  geom_point(alpha = .5, aes(x = time, y = value), color = "blue", shape = 1) +
+  geom_hline(yintercept = 337.47, linetype = "dashed") +
+  scale_x_datetime(date_breaks = "2 days", date_labels = "%b-%d") +
+  scale_y_continuous(breaks = scales::pretty_breaks(n = 6))+
+  theme(axis.text.x = element_text(angle = 270), legend.position = "none") +
+  ylim(330, 347) + 
+  labs(title = "", y = "", x = "") #+
+  # facet_wrap(~sensor, scales = "free_y")
+p1.ang.z + ggplot2::labs(title = "AMRS 1 (control) - Azimuth measurement", subtitle = "Black shadding = general filter applied\nWhite shading = low-mag filter applied")
+p2.ang.z + ggplot2::labs(title = "AMRS 2 (test) - Azimuth measurement", subtitle = "Black shadding = general filter applied\nWhite shading = low-mag filter applied")
+p3.ang.z + ggplot2::labs(title = "AMRS 2 (test) - Azimuth measurement", subtitle = "Black shadding = general filter applied\nWhite shading = low-mag filter applied")
+# gridExtra::grid.arrange(p1.ang.z, p2.ang.z, p3.ang.z, nrow = 1,
+#                         top = grid::textGrob("Averaged  (1-min) Ang Z measurements",gp=gpar(fontsize=20,font=3)), 
+#                         bottom = grid::textGrob("Black shadding indicates general filter applied, \n\t\twhite shading indicates low-mag filter applied",gp=gpar(fontsize=12,font=3))
+#                           )
+p3.ang <- ggplot(ang.reshape %>% dplyr::filter(stream == "angZ")) +
+  annotate("rect", xmin = experiment1.start, xmax = experiment1.end, ymin = 330, ymax = 347, alpha = 0.65, fill = "white")+
+  annotate("rect", xmin = experiment2.start, xmax = experiment2.end, ymin = 330, ymax = 347, alpha = 0.65, fill = "black")+
+  geom_point(alpha = .5, aes(x = time, y = value, color = sensor)) +
+  scale_color_manual(values = c("violet", "firebrick", "blue")) +
+  geom_hline(yintercept = 337.47, linetype = "dashed") +
+  scale_x_datetime(date_breaks = "2 days", date_labels = "%b-%d") +
+  scale_y_continuous(breaks = scales::pretty_breaks(n = 6))+
+  theme(axis.text.x = element_text(angle = 270), legend.position = "top") +
+  ylim(330, 347) + 
+  labs(title = "", y = "", x = "", color ="")
+p3.ang
+```
+
+# Purpose  
+
+To access the potential impact of using the "general" setting on the AMRS verus using the "Low-mag" setting. 
+
+# Background  
+
+Several filter settings options can be chosen for AMRS sensor configuration, and the C3 document specifies the “low_mag_dep” filter setting. However, we just learned that all AMRSs already installed at TIS field sites had been configured to the “general” filter setting.  
+
+> Note: The manual description below provides details for these two filter settings.  
+> Note: For the purpose of this document heading (synonym: yaw) describe the direction an object is pointing to in the horizontal plane, against magnetic north.  
+Following extensive testing during NEON Construction, the SAE Group chose the “low_mag_dep” filter profile. This filter profile aims to mitigate tower structure interference with the earth magnetic field, and hence with the yaw readings reported by the AMRS. Objective 1 of this test is to understand the impacts of these two filter settings on the AMRS data products. This informs the decision whether the “general” setting is robust within requirements against magnetic interference from the tower, or whether all AMRS deployed in the field should be reconfigured to the “low_mag_dep” setting. AMRS Manufacture Xsens refused to lock down a certain hardware and firmware version for NEON, resulting in the continuous change in the sensors we received and will received from the manufacturer.   
+
+However, the manufacturer provides support to NEON to upgrade or downgrade the sensor firmware version to a NEON approved version. Objective 2 of this test is to understand the sensor function after downgrading from firmware version 1.10.0 to the approved firmware version 1.7.2.  
+
+Note from the manual:  
+
+> The general filter profile is the default setting. It assumes moderate dynamics and a homogenous magnetic field. External magnetic distortions are considered relatively short (up to ~20 seconds). Typical applications include camera tracking (e.g. TV camera’s), remotely operated robotic arms on ROV’s etc.  
+> The low mag_dep filter profile assumes that the dynamics is relatively low and that there are long-lasting external magnetic distortions. Also use this filter profile when it is difficult to do a very good Magnetic Field Mapping (MFM). The use of the low_mag_dep filter profile can be useful to limit drift in heading whilst not being in a homogenous magnetic field. Typical applications are large vessels and unmanned ground vehicles in buildings.  
+ 
+# Method  
+
+Place a control Amrs that is set to *general* and use two other AMRS's that switch their settings after one week of testing so that we can compare the changes the setting has on each test AMRS unit.  
+
+* soniAmrs01 was our control unit.  
+* soniAmrs02 was tested first week with *general* setting, then *low-mag*  
+* soniAmrs03 was tested first week with *low-mag* setting, then *general*  
+
+![AMRS Experimental Design](N:/Science/FIUDATA/kstyers/amrs.cmpr/images/armsStacking.JPG)
+
+# Wind Data During Comparison Period  
+
+```{r, layout = "l-page", eval=TRUE}
+bigData$soni_mean_avg90$windDir <- eddy4R.base::def.unit.conv(data = bigData$soni_mean_avg90$angZaxsErth, unitFrom = "rad", unitTo = "deg", MethGc = FALSE)
+bigData$soni_mean_avg1800$windDir <- eddy4R.base::def.unit.conv(data = bigData$soni_mean_avg1800$angZaxsErth, unitFrom = "rad", unitTo = "deg", MethGc = FALSE)
+time <- as.vector(base::as.POSIXlt(bigData$soni_mean_avg1800$timeBgn, format="%Y-%m-%d %H:%M:%OS", tz="UTC"))
+wind.speed.data <- bigData$soni_mean_avg1800
+wind.speed.data$time <- base::as.POSIXct(wind.speed.data$timeBgn, format="%Y-%m-%d %H:%M:%OS", tz="UTC")
+plot.wind.speed <- ggplot(data = wind.speed.data, aes(x = time, y = veloXaxsYaxsErth))+
+  # geom_point(size = , alpha = .5) + 
+  annotate("rect", xmin = experiment1.start, xmax = experiment1.end, ymin = 0, ymax = 5, alpha = 0.2, fill = "#00cc00")+
+  annotate("rect", xmin = experiment2.start, xmax = experiment2.end, ymin = 0, ymax = 5, alpha = 0.2, fill = "yellow")+
+  geom_point(shape = 1) +
+  scale_x_datetime(date_breaks = "1 day") +
+  theme(axis.text.x = element_text(angle = 270)) +
+  labs(x = "", y = "Wind Speed (m/s)", title = "NEON HQ Tower CSAT3 Wind Speed During AMRS Round 2 Intercomparison") 
+plot.wind.dir <- ggplot(data = wind.speed.data, aes(x = time, y = windDir))+
+  # geom_point(size = .5, alpha = .5) +
+  annotate("rect", xmin = experiment1.start, xmax = experiment1.end, ymin = 0, ymax = 360, alpha = 0.2, fill = "#00cc00")+
+  annotate("rect", xmin = experiment2.start, xmax = experiment2.end, ymin = 0, ymax = 360, alpha = 0.2, fill = "yellow")+
+  geom_point(shape = 1) +
+  scale_x_datetime(date_breaks = "1 day") +
+  theme(axis.text.x = element_text(angle = 270)) +
+  labs(x = "", y = "Wind Direction (degrees)", title = "NEON HQ Tower CSAT3 Wind Direction During AMRS Round 2 Intercomparison") +
+  ylim(c(-5,370))
+print(plot.wind.speed)
+print(plot.wind.dir)
+```
+
+# Requirements Testing and Statistics  
+
+Key for understanding how each table is set up.  
+
+1. Each day a comparison was run to determine intra-week statistics, providing more granularity in our analysis.  
+2. The first test ran from 2020-03-25 to 2020-03-31. Where soniAmrs02 was configured to the "general" setting and soniAmrs03 was configured to the "low-mag" setting.  
+3. The second test ran from 2020-04-01 to 2020-04-11. Where soniAmrs02 was configured to the "low-mag" setting and soniAmrs02 was configured to the "general" setting.  
+4. The background color indicates what setting the AMRS was set to, <span style="color:black"><b>Black</b></span> cells are general setting, while the blank background cells are low-mag.  
+5. The text color indicates if the individual statistic met or failed the requirement. <span style="color:#00cc00"><b>Green</b></span> indicating passing, while <span style="color:firebrick"><b>Red</b></span> indicates failing
+
+```{r stats, layout = "l-page"}
+stat_files = list.files(path = "~/eddy/neon-sensor-test/data/2021_AMRS_Round_3/stats/", full.names = TRUE)
+stats.data <- data.table::data.table()
+# Note... There was no data for 03-28 and 03-29
+for(i in stat_files){
+
+  # Read in File
+  ingest.data <- base::readRDS(i)
+  # Merge it with master file
+  stats.data <- data.table::rbindlist(l = list(stats.data, ingest.data))
+
+}
+stats.data <- stats.data %>%
+  dplyr::mutate(value = as.numeric(value))
+options(scipen=1)
+```
+
+## Velocities  
+
+### Precision  
+
+To ensure the detectability of < 1 W m-2 least resolvable change in the eddy-covariance sensible heat flux measurements, the combination of AMRS and 3-D sonic anemometer shall enable determining the 3-D wind vector with respect to the earth coordinate system to within ± 0.05 m s-1 precision.  
+
+Both settings <span style="color:#00cc00"><b>PASSED</b></span>
+
+```{r, layout = "l-screen"}
+acc_axsDiffFilt.prcs <- stats.data %>%
+  dplyr::filter(stringr::str_detect(string = measurement, pattern = "axsDiffFilt") == TRUE) %>%
+  dplyr::filter(stat %in% c("prcs"))%>%
+  dplyr::mutate(test_date = as.Date(test.date, origin = "1970-01-01")) %>% dplyr::select(-test.date) %>% 
+  dplyr::mutate(value = round(value, 6)) %>%
+  # dplyr::mutate(setting = ifelse(test = sensor == "soniAmrs02" & test_date %in% seq.Date(from = as.Date(run_1_duration[1], origin = "1970-01-01"), to = as.Date(run_1_duration[2], origin = "1970-01-01"), by = "1 day"), yes = "01.04.01", no = NA)) %>% 
+  dplyr::mutate(setting = ifelse(test = sensor == "soniAmrs02" & test_date %in% seq.Date(from = as.Date(run_2_duration[1], origin = "1970-01-01"), to = as.Date(run_2_duration[2], origin = "1970-01-01"), by = "1 day"), yes = "01.04.05", no = NA)) %>% 
+  dplyr::mutate(setting = ifelse(test = sensor == "soniAmrs02" & test_date %in% seq.Date(from = as.Date(run_3_duration[1], origin = "1970-01-01"), to = as.Date(run_3_duration[2], origin = "1970-01-01"), by = "1 day"), yes = "01.05.01", no = setting)) %>% 
+  # dplyr::mutate(setting = ifelse(test = sensor == "soniAmrs03" & test_date %in% seq.Date(from = as.Date(run_1_duration[1], origin = "1970-01-01"), to = as.Date(run_1_duration[2], origin = "1970-01-01"), by = "1 day"), yes = "01.04.01", no = setting)) %>%
+  dplyr::mutate(setting = ifelse(test = sensor == "soniAmrs03" & test_date %in% seq.Date(from = as.Date(run_2_duration[1], origin = "1970-01-01"), to = as.Date(run_2_duration[2], origin = "1970-01-01"), by = "1 day"), yes = "01.05.01", no = setting)) %>%
+  dplyr::mutate(setting = ifelse(test = sensor == "soniAmrs03" & test_date %in% seq.Date(from = as.Date(run_3_duration[1], origin = "1970-01-01"), to = as.Date(run_3_duration[2], origin = "1970-01-01"), by = "1 day"), yes = "01.04.05", no = setting)) %>% 
+  # dplyr::filter(is.na(setting) == FALSE) %>% 
+  # dplyr::filter(is.na(value) == FALSE) %>% 
+  # dplyr::mutate(value = kableExtra::cell_spec(value, "html", color = ifelse(abs(value) <= 0.05, "#00cc00","firebrick"), background = ifelse(setting == "01.04.05", "white","black"), bold = TRUE)) %>%
+  reshape2::dcast(sensor + measurement + stat ~ test_date)  
+
+
+max(acc_axsDiffFilt.prcs$test_date)
+
+DT::datatable(acc_axsDiffFilt.prcs, escape = FALSE, options = list(dom = 't')) %>% 
+  DT::formatStyle(columns = c("sensor", "measurement", "stat"), backgroundColor = 'gray') 
+```
+
+### Accuracy  
+
+To ensure the detectability of < 5 W m-2 advective divergence in the eddy-covariance sensible heat flux measurements, the combination of AMRS and 3-D sonic anemometer shall enable determining the 3-D wind vector with respect to the earth coordinate system to within ± 0.10 m s-1 accuracy.  
+
+Both settings <span style="color:#00cc00"><b>PASSED</b></span>  
+
+```{r, layout = "l-screen"}
+acc_axsDiffFilt.diffMean <- stats.data %>%
+  dplyr::filter(stringr::str_detect(string = measurement, pattern = "axsDiffFilt") == TRUE) %>%
+  dplyr::filter(stat %in% c("diffMean"))%>%
+  dplyr::mutate(value = round(value, 7)) %>%
+  dplyr::mutate(setting = ifelse(test = sensor == "soniAmrs02" & test.date %in% c("2020-03-25", "2020-03-26", "2020-03-27","2020-03-30", "2020-03-31"), yes = "general", no = 
+                        ifelse(test = sensor == "soniAmrs02" & test.date %in% c("2020-04-01", "2020-04-02", "2020-04-03", "2020-04-04", "2020-04-05", "2020-04-06", "2020-04-07", "2020-04-08", "2020-04-09" , "2020-04-10", "2020-04-11"), yes = "low-mag", no = 
+                        ifelse(test = sensor == "soniAmrs03" & test.date %in% c("2020-03-25", "2020-03-26", "2020-03-27","2020-03-30", "2020-03-31"), yes = "low-mag", no = "general")))) %>%
+  dplyr::mutate(value = kableExtra::cell_spec(value, "html", color = ifelse(abs(value) <= 0.1, "#00cc00","firebrick"), background = ifelse(setting == "low-mag", "white","black"), bold = TRUE)) %>%
+  reshape2::dcast(sensor + measurement + stat ~ test.date)  
+DT::datatable(acc_axsDiffFilt.diffMean, escape = FALSE, options = list(dom = 't')) %>% 
+  DT::formatStyle(columns = c("sensor", "measurement", "stat"), backgroundColor = 'gray')
+```
+
+
+## Angular Rate  
+
+### Precison  
+
+To enable determining the 3-D wind vector with respect to the earth coordinate system, the AMRS shall be capable of measuring angular rates around either of 3 axes with a precision of ≤ 2.0 deg s-1.  
+
+Both settings <span style="color:#00cc00"><b>PASSED</b></span>  
+
+```{r, layout = "l-screen"}
+avel_axsDeg.prcs <- stats.data %>%
+  dplyr::filter(stringr::str_detect(string = measurement, pattern = "avel") == TRUE) %>%
+  dplyr::filter(stat %in% c("prcs"))%>%
+  dplyr::mutate(value = round(value, 7)) %>%
+  dplyr::mutate(setting = ifelse(test = sensor == "soniAmrs02" & test.date %in% c("2020-03-25", "2020-03-26", "2020-03-27","2020-03-30", "2020-03-31"), yes = "general", no = 
+                      ifelse(test = sensor == "soniAmrs02" & test.date %in% c("2020-04-01", "2020-04-02", "2020-04-03", "2020-04-04", "2020-04-05", "2020-04-06", "2020-04-07", "2020-04-08", "2020-04-09" , "2020-04-10", "2020-04-11"), yes = "low-mag", no = 
+                      ifelse(test = sensor == "soniAmrs03" & test.date %in% c("2020-03-25", "2020-03-26", "2020-03-27","2020-03-30", "2020-03-31"), yes = "low-mag", no = "general")))) %>%
+  dplyr::mutate(value = kableExtra::cell_spec(value, "html", color = ifelse(abs(value) <= 2.0, "#00cc00","firebrick"), background = ifelse(setting == "low-mag", "white","black"), bold = TRUE)) %>%
+  reshape2::dcast(sensor + measurement + stat ~ test.date)  
+DT::datatable(avel_axsDeg.prcs, escape = FALSE, options = list(dom = 't')) 
+```
+
+### Resolution  
+
+To enable determining the 3-D wind vector with respect to the earth coordinate system, the AMRS shall be capable of measuring angular rates around either of 3 axes with a resolution of  ≤ 0.2 deg s-1.  
+
+Both settings <span style="color:#00cc00"><b>PASSED</b></span>
+
+```{r, layout = "l-screen"}
+avel_axsDeg.reso <- stats.data %>%
+  dplyr::filter(stringr::str_detect(string = measurement, pattern = "avel") == TRUE) %>%
+  dplyr::filter(stat %in% c("reso"))%>%
+  dplyr::mutate(value = round(value, 7)) %>%
+  dplyr::mutate(setting = ifelse(test = sensor == "soniAmrs02" & test.date %in% c("2020-03-25", "2020-03-26", "2020-03-27","2020-03-30", "2020-03-31"), yes = "general", no = 
+                      ifelse(test = sensor == "soniAmrs02" & test.date %in% c("2020-04-01", "2020-04-02", "2020-04-03", "2020-04-04", "2020-04-05", "2020-04-06", "2020-04-07", "2020-04-08", "2020-04-09" , "2020-04-10", "2020-04-11"), yes = "low-mag", no = 
+                      ifelse(test = sensor == "soniAmrs03" & test.date %in% c("2020-03-25", "2020-03-26", "2020-03-27","2020-03-30", "2020-03-31"), yes = "low-mag", no = "general")))) %>%
+  dplyr::mutate(value = kableExtra::cell_spec(value, "html", color = ifelse(abs(value) <= 0.2, "#00cc00","firebrick"), background = ifelse(setting == "low-mag", "white","black"), bold = TRUE)) %>%
+  reshape2::dcast(sensor + measurement + stat ~ test.date)
+DT::datatable(avel_axsDeg.reso, escape = FALSE, options = list(dom = 't'))
+```
+
+
+### Accuracy
+
+To enable determining the 3-D wind vector with respect to the earth coordinate system, the AMRS shall be capable of measuring angular rates around either of 3 axes with an accuracy of ≤ 4.0 deg s-1.  
+
+Both settings <span style="color:#00cc00"><b>PASSED</b></span>  
+
+```{r, layout = "l-screen"}
+avel_axsDeg.diffMean <- stats.data %>%
+  dplyr::filter(stringr::str_detect(string = measurement, pattern = "avel") == TRUE) %>%
+  dplyr::filter(stat %in% c("diffMean"))%>%
+  dplyr::mutate(value = round(value, 7)) %>%
+  dplyr::mutate(setting = ifelse(test = sensor == "soniAmrs02" & test.date %in% c("2020-03-25", "2020-03-26", "2020-03-27","2020-03-30", "2020-03-31"), yes = "general", no = 
+                      ifelse(test = sensor == "soniAmrs02" & test.date %in% c("2020-04-01", "2020-04-02", "2020-04-03", "2020-04-04", "2020-04-05", "2020-04-06", "2020-04-07", "2020-04-08", "2020-04-09" , "2020-04-10", "2020-04-11"), yes = "low-mag", no = 
+                      ifelse(test = sensor == "soniAmrs03" & test.date %in% c("2020-03-25", "2020-03-26", "2020-03-27","2020-03-30", "2020-03-31"), yes = "low-mag", no = "general")))) %>%
+  dplyr::mutate(value = kableExtra::cell_spec(value, "html", color = ifelse(abs(value) <= 4.0, "#00cc00","firebrick"), background = ifelse(setting == "low-mag", "white","black"), bold = TRUE)) %>%
+  reshape2::dcast(sensor + measurement + stat ~ test.date)
+DT::datatable(avel_axsDeg.diffMean, escape = FALSE, options = list(dom = 't')) 
+```
+
+
+## Angles  
+
+### Accuracy of Z-azimuth  
+
+To enable determining the 3-D wind vector with respect to the earth coordinate system, the AMRS shall be capable of measuring azimuth (around z-axis) with an accuracy of ≤ 4 deg, including any internal alignment offsets.  
+
+soniAMRS02 mostly <span style="color:#00cc00"><b>PASSED</b></span> with one bad day on 2020-04-04 (*low-mag*). 
+
+soniAmrs03 entirely <span style="color:#00cc00"><b>FAILED</b></span> regardless of what setting it was on.
+
+```{r, layout = "l-screen"}
+ang_axsDeg.diffMean <- stats.data %>%
+  dplyr::filter(stringr::str_detect(string = measurement, pattern = "angZ") == TRUE) %>%
+  dplyr::filter(stat %in% c("diffMean"))%>%
+  dplyr::mutate(value = round(value, 5)) %>%
+  dplyr::mutate(setting = ifelse(test = sensor == "soniAmrs02" & test.date %in% c("2020-03-25", "2020-03-26", "2020-03-27","2020-03-30", "2020-03-31"), yes = "general", no = 
+                    ifelse(test = sensor == "soniAmrs02" & test.date %in% c("2020-04-01", "2020-04-02", "2020-04-03", "2020-04-04", "2020-04-05", "2020-04-06", "2020-04-07", "2020-04-08", "2020-04-09" , "2020-04-10", "2020-04-11"), yes = "low-mag", no = 
+                    ifelse(test = sensor == "soniAmrs03" & test.date %in% c("2020-03-25", "2020-03-26", "2020-03-27","2020-03-30", "2020-03-31"), yes = "low-mag", no = "general")))) %>%
+  dplyr::mutate(value = kableExtra::cell_spec(value, "html", color = ifelse(abs(value) <= 4.0, "#00cc00","firebrick"), background = ifelse(setting == "low-mag", "white","black"), bold = TRUE)) %>%
+  reshape2::dcast(sensor + measurement + stat ~ test.date)
+DT::datatable(ang_axsDeg.diffMean, escape = FALSE, options = list(dom = 't'))
+```
+
+### Precision  
+
+To enable determining the 3-D wind vector with respect to the earth coordinate system, the AMRS shall be capable of measuring azimuth (around z-axis), pitch (around y-axis) and roll (around x-axis) with a precision of ≤ 0.1 deg.
+
+
+soniAmrs02 <span style="color:#00cc00"><b>passed</b></span> while in *general* setting for X and Y angles, but failed by ~.08 on angZ. Additionally, soniAmrs02 <span style="color:firebrick"><b>failed</b></span> by ~ 0.03 for X and Y angles and by ~ 0.2 for Z angle during *low-mag* setting.
+
+soniAmrs03 <span style="color:firebrick"><b>Failed</b></span> in both settings by larger margins than soniAmrs02, but generally performed better across all axis whilst set to *general*
+
+
+```{r, layout = "l-screen"}
+ang_axsDeg.prcs <- stats.data %>%
+  dplyr::filter(stringr::str_detect(string = measurement, pattern = "ang") == TRUE) %>%
+  dplyr::filter(stat %in% c("prcs"))%>%
+  dplyr::mutate(value = round(value, 5)) %>%
+  dplyr::mutate(setting = ifelse(test = sensor == "soniAmrs02" & test.date %in% c("2020-03-25", "2020-03-26", "2020-03-27","2020-03-30", "2020-03-31"), yes = "general", no = 
+                    ifelse(test = sensor == "soniAmrs02" & test.date %in% c("2020-04-01", "2020-04-02", "2020-04-03", "2020-04-04", "2020-04-05", "2020-04-06", "2020-04-07", "2020-04-08", "2020-04-09" , "2020-04-10", "2020-04-11"), yes = "low-mag", no = 
+                    ifelse(test = sensor == "soniAmrs03" & test.date %in% c("2020-03-25", "2020-03-26", "2020-03-27","2020-03-30", "2020-03-31"), yes = "low-mag", no = "general")))) %>%
+  dplyr::mutate(value = kableExtra::cell_spec(value, "html", color = ifelse(abs(value) <= 0.1, "#00cc00","firebrick"), background = ifelse(setting == "low-mag", "white","black"), bold = TRUE)) %>%
+  reshape2::dcast(sensor + measurement + stat ~ test.date)
+DT::datatable(ang_axsDeg.prcs, escape = FALSE, options = list(dom = 't')) 
+```
+
+### Resolution  
+
+To enable determining the 3-D wind vector with respect to the earth coordinate system, the AMRS shall be capable of measuring azimuth (around z-axis), pitch (around y-axis) and roll (around x-axis) with a resolution of  ≤ 0.05 deg.  
+
+Both settings <span style="color:#00cc00"><b>PASSED</b></span>  
+
+```{r, layout = "l-screen"}
+ang_axsDeg.reso <- stats.data %>%
+  dplyr::filter(stringr::str_detect(string = measurement, pattern = "ang") == TRUE) %>%
+  dplyr::filter(stat %in% c("reso"))%>%
+  # dplyr::mutate(value = round(value, 7)) %>%
+  dplyr::mutate(setting = ifelse(test = sensor == "soniAmrs02" & test.date %in% c("2020-03-25", "2020-03-26", "2020-03-27","2020-03-30", "2020-03-31"), yes = "general", no = 
+                      ifelse(test = sensor == "soniAmrs02" & test.date %in% c("2020-04-01", "2020-04-02", "2020-04-03", "2020-04-04", "2020-04-05", "2020-04-06", "2020-04-07", "2020-04-08", "2020-04-09" , "2020-04-10", "2020-04-11"), yes = "low-mag", no = 
+                      ifelse(test = sensor == "soniAmrs03" & test.date %in% c("2020-03-25", "2020-03-26", "2020-03-27","2020-03-30", "2020-03-31"), yes = "low-mag", no = "general")))) %>%
+  dplyr::mutate(value = kableExtra::cell_spec(value, "html", color = ifelse(abs(value) <= 0.05, "#00cc00","firebrick"), background = ifelse(setting == "low-mag", "white","black"), bold = TRUE)) %>%
+  reshape2::dcast(sensor + measurement + stat ~ test.date)
+DT::datatable(ang_axsDeg.reso, escape = FALSE, options = list(dom = 't')) 
+```
+
+### Accuracy
+
+To enable determining the 3-D wind vector with respect to the earth coordinate system, the AMRS shall be capable of measuring pitch (around y-axis) and roll (around x-axis) with an accuracy of ≤ 1 deg, including any internal alignment offsets.  
+
+Both settings <span style="color:#00cc00"><b>PASSED</b></span>  
+
+```{r, layout = "l-screen"}
+ang_axsDeg.diffMean <- stats.data %>%
+  dplyr::filter(measurement %in% c("angYaxsDeg", "angXaxsDeg")) %>%
+  dplyr::filter(stat %in% c("diffMean"))%>%
+  dplyr::mutate(value = round(value, 5)) %>%
+  dplyr::mutate(setting = ifelse(test = sensor == "soniAmrs02" & test.date %in% c("2020-03-25", "2020-03-26", "2020-03-27","2020-03-30", "2020-03-31"), yes = "general", no = 
+                      ifelse(test = sensor == "soniAmrs02" & test.date %in% c("2020-04-01", "2020-04-02", "2020-04-03", "2020-04-04", "2020-04-05", "2020-04-06", "2020-04-07", "2020-04-08", "2020-04-09" , "2020-04-10", "2020-04-11"), yes = "low-mag", no = 
+                      ifelse(test = sensor == "soniAmrs03" & test.date %in% c("2020-03-25", "2020-03-26", "2020-03-27","2020-03-30", "2020-03-31"), yes = "low-mag", no = "general")))) %>%
+  dplyr::mutate(value = kableExtra::cell_spec(value, "html", color = ifelse(abs(value) <= 1.0, "#00cc00","firebrick"), background = ifelse(setting == "low-mag", "white","black"), bold = TRUE)) %>%
+  reshape2::dcast(sensor + measurement + stat ~ test.date)
+DT::datatable(ang_axsDeg.diffMean, escape = FALSE, options = list(dom = 't')) 
+```
+
+
+## Supplemental Plots  
+
+### accXaxs + accYaxs + accZaxs  
+
+```{r, layout = "l-page", eval = FALSE}
+#Ploting 1:1 comparison each soniAmrs
+require(stats)
+# Westerly wind will give us better data
+dirOut <- "N:/Science/FIUData/kstyers/amrs.cmpr/"
+soniAmrs01_data <- soniAmrs_plot_data %>%
+  dplyr::filter(sensor == "soniAmrs01")
+soniAmrs02_data <- soniAmrs_plot_data %>%
+  dplyr::filter(sensor == "soniAmrs02")
+soniAmrs03_data <- soniAmrs_plot_data %>%
+  dplyr::filter(sensor == "soniAmrs03")
+test.melt <- soniAmrs_plot_data %>%
+  reshape2::melt(id.vars = c("timeBgn", "sensor","run", "firmware_version")) %>%
+  tidyr::unite(col = "measurement", c("sensor","variable","firmware_version")) %>%
+  reshape2::dcast(timeBgn + run ~ measurement, value.var = "value", fun.aggregate = mean)
+p1 <- ggplot(data = test.melt, aes(x = soniAmrs01_accXaxs_01.04.01, y = soniAmrs02_accXaxs_01.04.01)) +
+  geom_point() + 
+  geom_smooth(method = "lm", color = "red") +
+  labs(title = "soniAmrs 1 and 2", subtitle = "\taccXaxs", x = "soniAmrs01 accXaxsgeneral", y = "soniAmrs02 accXaxs low-mag")  +
+  facet_wrap(~run)
+p2 <- ggplot(data = test.melt, aes(x = soniAmrs01_accXaxs_general, y = `soniAmrs03_accXaxs_low-mag`)) +
+  geom_point() + 
+  geom_smooth(method = "lm", color = "red") +
+  labs(title = "soniAmrs 1 and 3", subtitle = "\taccXaxs", x = "soniAmrs01 accXaxs general", y = "soniAmrs03 accXaxs low-mag") 
+p3 <- ggplot(data = test.melt, aes(x = soniAmrs02_accXaxs_general, y = `soniAmrs03_accXaxs_low-mag`)) +
+  geom_point() + 
+  geom_smooth(method = "lm", color = "red") +
+  labs(title = "soniAmrs 2 and 3", subtitle = "\taccXaxs", x = "soniAmrs02 accXaxs general", y = "soniAmrs03 accXaxs low-mag") 
+gridExtra::grid.arrange(p1, p2, p3, nrow = 1)
+data.plot <- data.table()
+data.plot$soniAmrs01_mean_avg60.accXaxs = soniAmrs01_data$accXaxs
+data.plot$soniAmrs02_mean_avg60.accXaxs = soniAmrs02_data$accXaxs
+data.plot$soniAmrs03_mean_avg60.accXaxs = soniAmrs03_data$accXaxs
+soniAmrs01_data$accy
+p1 <- ggplot(data = data.plot, aes(x = soniAmrs01_mean_avg60.accXaxs, y = soniAmrs02_mean_avg60.accXaxs)) +
+  geom_point() +
+  geom_smooth(method = "lm", color = "red") +
+  labs(title = "soniAmrs 1 and 2", subtitle = "\taccXaxs", x = "soniAmrs01 accXaxs", y = "soniAmrs02 accXaxs") +
+  facet_wrap(~firmware_version)
+data.plot$soniAmrs01_mean_avg60.accYaxs = bigData$soniAmrs01_mean_avg60$accYaxs
+data.plot$soniAmrs02_mean_avg60.accYaxs = bigData$soniAmrs02_mean_avg60$accYaxs
+data.plot$soniAmrs03_mean_avg60.accYaxs = bigData$soniAmrs03_mean_avg60$accYaxs
+data.plot$soniAmrs01_mean_avg60.accZaxs = bigData$soniAmrs01_mean_avg60$accZaxs
+data.plot$soniAmrs02_mean_avg60.accZaxs = bigData$soniAmrs02_mean_avg60$accZaxs
+data.plot$soniAmrs03_mean_avg60.accZaxs = bigData$soniAmrs03_mean_avg60$accZaxs
+data.plot <- data.plot %>%
+  dplyr::filter(is.na(soniAmrs01_mean_avg60.accXaxs) == FALSE) %>%
+  dplyr::filter(is.na(soniAmrs02_mean_avg60.accXaxs) == FALSE) 
+p1 <- ggplot(data = data.plot, aes(x = soniAmrs01_mean_avg60.accXaxs, y = soniAmrs02_mean_avg60.accXaxs)) +
+  geom_point() + 
+  geom_smooth(method = "lm", color = "red") +
+  labs(title = "soniAmrs 1 and 2", subtitle = "\taccXaxs", x = "soniAmrs01 accXaxs", y = "soniAmrs02 accXaxs") +
+  facet_wrap(~firmware_version)
+p2 <- ggplot(data = data.plot, aes(x = soniAmrs01_mean_avg60.accXaxs, y = soniAmrs03_mean_avg60.accXaxs)) +
+  geom_point() + 
+  geom_smooth(method = "lm", color = "red")+
+  labs(title = "soniAmrs 1 and 3", subtitle = "\taccXaxs",x = "soniAmrs01 accXaxs", y = "soniAmrs03 accXaxs")
+p3 <- ggplot(data = data.plot, aes(x = soniAmrs02_mean_avg60.accXaxs, y = soniAmrs03_mean_avg60.accXaxs)) +
+  geom_point() + 
+  geom_smooth(method = "lm", color = "red")+
+  labs(title = "soniAmrs 2 and 3", subtitle = "\taccXaxs",x = "soniAmrs02 accXaxs", y = "soniAmrs03 accXaxs")
+  
+gridExtra::grid.arrange(p1, p2, p3, nrow = 1)
+p4 <- ggplot(data = data.plot, aes(x = soniAmrs01_mean_avg60.accYaxs, y = soniAmrs02_mean_avg60.accYaxs)) +
+  geom_point() + 
+  geom_smooth(method = "lm", color = "red") +
+  labs(title = "soniAmrs 1 and 2", subtitle = "\taccYaxs", x = "soniAmrs01 accYaxs", y = "soniAmrs02 accYaxs")
+p5 <- ggplot(data = data.plot, aes(x = soniAmrs01_mean_avg60.accYaxs, y = soniAmrs03_mean_avg60.accYaxs)) +
+  geom_point() + 
+  geom_smooth(method = "lm", color = "red")+
+  labs(title = "soniAmrs 1 and 3", subtitle = "\taccYaxs",x = "soniAmrs01 accYaxs", y = "soniAmrs03 accYaxs")
+p6 <- ggplot(data = data.plot, aes(x = soniAmrs02_mean_avg60.accYaxs, y = soniAmrs03_mean_avg60.accYaxs)) +
+  geom_point() + 
+  geom_smooth(method = "lm", color = "red")+
+  labs(title = "soniAmrs 2 and 3", subtitle = "\taccYaxs",x = "soniAmrs02 accYaxs", y = "soniAmrs03 accYaxs")
+  
+gridExtra::grid.arrange(p4, p5, p6, nrow = 1)
+p7 <- ggplot(data = data.plot, aes(x = soniAmrs01_mean_avg60.accZaxs, y = soniAmrs02_mean_avg60.accZaxs)) +
+  geom_point() + 
+  geom_smooth(method = "lm", color = "red") +
+  labs(title = "soniAmrs 1 and 2", subtitle = "\taccZaxs", x = "soniAmrs01 accZaxs", y = "soniAmrs02 accZaxs")
+p8 <- ggplot(data = data.plot, aes(x = soniAmrs01_mean_avg60.accZaxs, y = soniAmrs03_mean_avg60.accZaxs)) +
+  geom_point() + 
+  geom_smooth(method = "lm", color = "red")+
+  labs(title = "soniAmrs 1 and 3", subtitle = "\taccZaxs",x = "soniAmrs01 accZaxs", y = "soniAmrs03 accZaxs")
+p9 <- ggplot(data = data.plot, aes(x = soniAmrs02_mean_avg60.accZaxs, y = soniAmrs03_mean_avg60.accZaxs)) +
+  geom_point() + 
+  geom_smooth(method = "lm", color = "red")+
+  labs(title = "soniAmrs 2 and 3", subtitle = "\taccZaxs",x = "soniAmrs02 accZaxs", y = "soniAmrs03 accZaxs")
+  
+gridExtra::grid.arrange(p7, p8, p9, nrow = 1)
+```
+
+### Angles
+
+```{r, layout = "l-page"}
+### Annotations set up the color annoations to displaay the cooresponding backgrounds.
+### Move up to above stats.
+ang.plot <- data.table::data.table()
+ang.plot$time   <- as.POSIXct(bigData$soniAmrs01_mean_avg60$timeBgn, format="%Y-%m-%d %H:%M:%OS")
+ang.plot$amrs01.angX <- as.numeric(bigData$soniAmrs01_mean_avg60$angXaxsDeg)
+ang.plot$amrs02.angX <- as.numeric(bigData$soniAmrs02_mean_avg60$angXaxsDeg)
+ang.plot$amrs03.angX <- as.numeric(bigData$soniAmrs03_mean_avg60$angXaxsDeg)
+ang.plot$amrs01.angY <- as.numeric(bigData$soniAmrs01_mean_avg60$angYaxsDeg)
+ang.plot$amrs02.angY <- as.numeric(bigData$soniAmrs02_mean_avg60$angYaxsDeg)
+ang.plot$amrs03.angY <- as.numeric(bigData$soniAmrs03_mean_avg60$angYaxsDeg)
+ang.plot$amrs01.angZ <- as.numeric(bigData$soniAmrs01_mean_avg60$angZaxsDeg)
+ang.plot$amrs02.angZ <- as.numeric(bigData$soniAmrs02_mean_avg60$angZaxsDeg)
+ang.plot$amrs03.angZ <- as.numeric(bigData$soniAmrs03_mean_avg60$angZaxsDeg)
+ang.plot.nona <- ang.plot %>%
+  na.omit()
+ang.reshape <- ang.plot.nona %>%
+  reshape2::melt(id.var = "time") %>%
+  dplyr::group_by(variable) %>%
+  tidyr::separate(variable, into = c("sensor","stream"))
+p1.ang.x <- ggplot(ang.reshape %>% dplyr::filter(stream == "angX") %>% dplyr::filter(sensor == "amrs01")) +
+  annotate("rect", xmin = experiment1.start, xmax = experiment2.end, ymin = -3, ymax = 2, alpha = 0.75, fill = "black")+
+  geom_point(alpha = .5, aes(x = time, y = value), color = "violet", shape = 1) +
+  scale_x_datetime(date_breaks = "2 days", date_labels = "%b-%d") +
+  scale_y_continuous(breaks = scales::pretty_breaks(n = 6))+
+  theme(axis.text.x = element_text(angle = 270), legend.position = "none") +
+  labs(title = "", y = "Degrees", x = "") +
+  facet_wrap(~sensor, scales = "free_y")
+p2.ang.x <- ggplot(ang.reshape %>% dplyr::filter(stream == "angX") %>% dplyr::filter(sensor == "amrs02")) +
+  annotate("rect", xmin = experiment1.start, xmax = experiment1.end, ymin = -3, ymax = 2, alpha = 0.75, fill = "black")+
+  annotate("rect", xmin = experiment2.start, xmax = experiment2.end, ymin = -3, ymax = 2, alpha = 0.75, fill = "white")+
+  geom_point(alpha = .5, aes(x = time, y = value), color = "firebrick", shape = 1) +
+  scale_x_datetime(date_breaks = "2 days", date_labels = "%b-%d") +
+  scale_y_continuous(breaks = scales::pretty_breaks(n = 6))+
+  theme(axis.text.x = element_text(angle = 270), legend.position = "none") +
+  labs(title = "", y = "", x = "") +
+  facet_wrap(~sensor, scales = "free_y")
+p3.ang.x <- ggplot(ang.reshape %>% dplyr::filter(stream == "angX") %>% dplyr::filter(sensor == "amrs03")) +
+  annotate("rect", xmin = experiment1.start, xmax = experiment1.end, ymin = -3, ymax = 2, alpha = 0.75, fill = "white")+
+  annotate("rect", xmin = experiment2.start, xmax = experiment2.end, ymin = -3, ymax = 2, alpha = 0.75, fill = "black")+
+  geom_point(alpha = .5, aes(x = time, y = value), color = "blue", shape = 1) +
+  scale_x_datetime(date_breaks = "2 days", date_labels = "%b-%d") +
+  scale_y_continuous(breaks = scales::pretty_breaks(n = 6))+
+  theme(axis.text.x = element_text(angle = 270), legend.position = "none") +
+  labs(title = "", y = "", x = "") +
+  facet_wrap(~sensor, scales = "free_y")
+gridExtra::grid.arrange(p1.ang.x, p2.ang.x, p3.ang.x, nrow = 1,
+                        top = grid::textGrob("Averaged (1-min) Ang X measurements",gp=gpar(fontsize=20,font=3)), 
+                        bottom = grid::textGrob("Black shadding indicates general filter applied, \n\t\twhite shading indicates low-mag filter applied",gp=gpar(fontsize=12,font=3))
+                          )
+p1.ang.y <- ggplot(ang.reshape %>% dplyr::filter(stream == "angY") %>% dplyr::filter(sensor == "amrs01")) +
+  annotate("rect", xmin = experiment1.start, xmax = experiment2.end, ymin = -3, ymax = 2, alpha = 0.75, fill = "black")+
+  geom_point(alpha = .5, aes(x = time, y = value), color = "violet", shape = 1) +
+  scale_x_datetime(date_breaks = "2 days", date_labels = "%b-%d") +
+  scale_y_continuous(breaks = scales::pretty_breaks(n = 6))+
+  theme(axis.text.x = element_text(angle = 270), legend.position = "none") +
+  labs(title = "", y = "Degrees", x = "") +
+  facet_wrap(~sensor, scales = "free_y")
+p2.ang.y <- ggplot(ang.reshape %>% dplyr::filter(stream == "angY") %>% dplyr::filter(sensor == "amrs02")) +
+  annotate("rect", xmin = experiment1.start, xmax = experiment1.end, ymin = -3, ymax = 2, alpha = 0.75, fill = "black")+
+  annotate("rect", xmin = experiment2.start, xmax = experiment2.end, ymin = -3, ymax = 2, alpha = 0.75, fill = "white")+
+  geom_point(alpha = .5, aes(x = time, y = value), color = "firebrick", shape = 1) +
+  scale_x_datetime(date_breaks = "2 days", date_labels = "%b-%d") +
+  scale_y_continuous(breaks = scales::pretty_breaks(n = 6))+
+  theme(axis.text.x = element_text(angle = 270), legend.position = "none") +
+  labs(title = "", y = "", x = "") +
+  facet_wrap(~sensor, scales = "free_y")
+p3.ang.y <- ggplot(ang.reshape %>% dplyr::filter(stream == "angY") %>% dplyr::filter(sensor == "amrs03")) +
+  annotate("rect", xmin = experiment1.start, xmax = experiment1.end, ymin = -3, ymax = 2, alpha = 0.75, fill = "white")+
+  annotate("rect", xmin = experiment2.start, xmax = experiment2.end, ymin = -3, ymax = 2, alpha = 0.75, fill = "black")+
+  geom_point(alpha = .5, aes(x = time, y = value), color = "blue", shape = 1) +
+  scale_x_datetime(date_breaks = "2 days", date_labels = "%b-%d") +
+  scale_y_continuous(breaks = scales::pretty_breaks(n = 6))+
+  theme(axis.text.x = element_text(angle = 270), legend.position = "none") +
+  labs(title = "", y = "", x = "") +
+  facet_wrap(~sensor, scales = "free_y")
+gridExtra::grid.arrange(p1.ang.y, p2.ang.y, p3.ang.y, nrow = 1,
+                        top = grid::textGrob("Averaged (1-min) Ang Y measurements",gp=gpar(fontsize=20,font=3)), 
+                        bottom = grid::textGrob("Black shadding indicates general filter applied, \n\t\twhite shading indicates low-mag filter applied",gp=gpar(fontsize=12,font=3))
+                          )
+p1.ang.z <- ggplot(ang.reshape %>% dplyr::filter(stream == "angZ") %>% dplyr::filter(sensor == "amrs01")) +
+  annotate("rect", xmin = experiment1.start, xmax = experiment2.end, ymin = 330, ymax = 347, alpha = 0.75, fill = "black")+
+  geom_point(alpha = .5, aes(x = time, y = value), color = "violet", shape = 1) +
+  geom_hline(yintercept = 337.47, linetype = "dashed") +
+  scale_x_datetime(date_breaks = "2 days", date_labels = "%b-%d") +
+  scale_y_continuous(breaks = scales::pretty_breaks(n = 6))+
+  theme(axis.text.x = element_text(angle = 270), legend.position = "none") +
+  labs(title = "", y = "Degrees", x = "") +
+  ylim(330, 347) +
+  facet_wrap(~sensor, scales = "free_y")
+p2.ang.z <- ggplot(ang.reshape %>% dplyr::filter(stream == "angZ") %>% dplyr::filter(sensor == "amrs02")) +
+  annotate("rect", xmin = experiment1.start, xmax = experiment1.end, ymin = 330, ymax = 347, alpha = 0.75, fill = "black")+
+  annotate("rect", xmin = experiment2.start, xmax = experiment2.end, ymin = 330, ymax = 347, alpha = 0.75, fill = "white")+
+  geom_point(alpha = .5, aes(x = time, y = value), color = "firebrick", shape = 1) +
+  geom_hline(yintercept = 337.47, linetype = "dashed") +
+  scale_x_datetime(date_breaks = "2 days", date_labels = "%b-%d") +
+  scale_y_continuous(breaks = scales::pretty_breaks(n = 6))+
+  theme(axis.text.x = element_text(angle = 270), legend.position = "none") +
+  ylim(330, 347) +
+  labs(title = "", y = "", x = "") +
+  facet_wrap(~sensor, scales = "free_y")
+p3.ang.z <- ggplot(ang.reshape %>% dplyr::filter(stream == "angZ") %>% dplyr::filter(sensor == "amrs03")) +
+  annotate("rect", xmin = experiment1.start, xmax = experiment1.end, ymin = 330, ymax = 347, alpha = 0.75, fill = "white")+
+  annotate("rect", xmin = experiment2.start, xmax = experiment2.end, ymin = 330, ymax = 347, alpha = 0.75, fill = "black")+
+  geom_point(alpha = .5, aes(x = time, y = value), color = "blue", shape = 1) +
+  geom_hline(yintercept = 337.47, linetype = "dashed") +
+  scale_x_datetime(date_breaks = "2 days", date_labels = "%b-%d") +
+  scale_y_continuous(breaks = scales::pretty_breaks(n = 6))+
+  theme(axis.text.x = element_text(angle = 270), legend.position = "none") +
+  ylim(330, 347) + 
+  labs(title = "", y = "", x = "") +
+  facet_wrap(~sensor, scales = "free_y")
+gridExtra::grid.arrange(p1.ang.z, p2.ang.z, p3.ang.z, nrow = 1,
+                        top = grid::textGrob("Averaged  (1-min) Ang Z measurements",gp=gpar(fontsize=20,font=3)), 
+                        bottom = grid::textGrob("Black shadding indicates general filter applied, \n\t\twhite shading indicates low-mag filter applied",gp=gpar(fontsize=12,font=3))
+                          )
+```
+
+### Acceleration  
+
+```{r, layout = "l-page"}
+### Annotations set up the color annoations to displaay the cooresponding backgrounds.
+### Move up to above stats.
+acc.plot <- data.table::data.table()
+acc.plot$time   <- as.POSIXct(bigData$soniAmrs01_mean_avg60$timeBgn, format="%Y-%m-%d %H:%M:%OS")
+acc.plot$amrs01.accX <- as.numeric(bigData$soniAmrs01_mean_avg60$accXaxs)
+acc.plot$amrs02.accX <- as.numeric(bigData$soniAmrs02_mean_avg60$accXaxs)
+acc.plot$amrs03.accX <- as.numeric(bigData$soniAmrs03_mean_avg60$accXaxs)
+acc.plot$amrs01.accY <- as.numeric(bigData$soniAmrs01_mean_avg60$accYaxs)
+acc.plot$amrs02.accY <- as.numeric(bigData$soniAmrs02_mean_avg60$accYaxs)
+acc.plot$amrs03.accY <- as.numeric(bigData$soniAmrs03_mean_avg60$accYaxs)
+acc.plot$amrs01.accZ <- as.numeric(bigData$soniAmrs01_mean_avg60$accZaxs)
+acc.plot$amrs02.accZ <- as.numeric(bigData$soniAmrs02_mean_avg60$accZaxs)
+acc.plot$amrs03.accZ <- as.numeric(bigData$soniAmrs03_mean_avg60$accZaxs)
+acc.plot.nona <- acc.plot %>%
+  na.omit()
+acc.reshape <- acc.plot.nona %>%
+  reshape2::melt(id.var = "time") %>%
+  dplyr::group_by(variable) %>%
+  tidyr::separate(variable, into = c("sensor","stream"))
+p1.acc.x <- ggplot(acc.reshape %>% dplyr::filter(stream == "accX") %>% dplyr::filter(sensor == "amrs01")) +
+  annotate("rect", xmin = experiment1.start, xmax = experiment2.end, ymin = -0.05, ymax = 0.05, alpha = 0.75, fill = "black")+
+  geom_point(alpha = .5, aes(x = time, y = value), color = "violet", shape = 1) +
+  scale_x_datetime(date_breaks = "2 days", date_labels = "%b-%d") +
+  scale_y_continuous(breaks = scales::pretty_breaks(n = 6))+
+  theme(axis.text.x = element_text(angle = 270), legend.position = "none") +
+  labs(title = "", y = "Degrees", x = "") +
+  facet_wrap(~sensor, scales = "free_y")
+p2.acc.x <- ggplot(acc.reshape %>% dplyr::filter(stream == "accX") %>% dplyr::filter(sensor == "amrs02")) +
+  annotate("rect", xmin = experiment1.start, xmax = experiment1.end, ymin = -0.05, ymax = 0.05, alpha = 0.75, fill = "black")+
+  annotate("rect", xmin = experiment2.start, xmax = experiment2.end, ymin = -0.05, ymax = 0.05, alpha = 0.75, fill = "white")+
+  geom_point(alpha = .5, aes(x = time, y = value), color = "firebrick", shape = 1) +
+  scale_x_datetime(date_breaks = "2 days", date_labels = "%b-%d") +
+  scale_y_continuous(breaks = scales::pretty_breaks(n = 6))+
+  theme(axis.text.x = element_text(angle = 270), legend.position = "none") +
+  labs(title = "", y = "", x = "") +
+  facet_wrap(~sensor, scales = "free_y")
+p3.acc.x <- ggplot(acc.reshape %>% dplyr::filter(stream == "accX") %>% dplyr::filter(sensor == "amrs03")) +
+  annotate("rect", xmin = experiment1.start, xmax = experiment1.end, ymin = -0.05, ymax = 0.05, alpha = 0.75, fill = "white")+
+  annotate("rect", xmin = experiment2.start, xmax = experiment2.end, ymin = -0.05, ymax = 0.05, alpha = 0.75, fill = "black")+
+  geom_point(alpha = .5, aes(x = time, y = value), color = "blue", shape = 1) +
+  scale_x_datetime(date_breaks = "2 days", date_labels = "%b-%d") +
+  scale_y_continuous(breaks = scales::pretty_breaks(n = 6))+
+  theme(axis.text.x = element_text(angle = 270), legend.position = "none") +
+  labs(title = "", y = "", x = "") +
+  facet_wrap(~sensor, scales = "free_y")
+gridExtra::grid.arrange(p1.acc.x, p2.acc.x, p3.acc.x, nrow = 1,
+                        top = grid::textGrob("Averaged (1-min) Acceleration X measurements",gp=gpar(fontsize=20,font=3)), 
+                        bottom = grid::textGrob("Black shadding indicates general filter applied, \n\t\twhite shading indicates low-mag filter applied",gp=gpar(fontsize=12,font=3))
+                          )
+p1.acc.y <- ggplot(acc.reshape %>% dplyr::filter(stream == "accY") %>% dplyr::filter(sensor == "amrs01")) +
+  annotate("rect", xmin = experiment1.start, xmax = experiment2.end, ymin = -0.3, ymax = -0.25, alpha = 0.75, fill = "black")+
+  geom_point(alpha = .5, aes(x = time, y = value), color = "violet", shape = 1) +
+  scale_x_datetime(date_breaks = "2 days", date_labels = "%b-%d") +
+  scale_y_continuous(breaks = scales::pretty_breaks(n = 6))+
+  theme(axis.text.x = element_text(angle = 270), legend.position = "none") +
+  labs(title = "", y = "Degrees", x = "") +
+  facet_wrap(~sensor, scales = "free_y")
+p2.acc.y <- ggplot(acc.reshape %>% dplyr::filter(stream == "accY") %>% dplyr::filter(sensor == "amrs02")) +
+  annotate("rect", xmin = experiment1.start, xmax = experiment1.end, ymin = -0.3, ymax = -0.25, alpha = 0.75, fill = "black")+
+  annotate("rect", xmin = experiment2.start, xmax = experiment2.end, ymin = -0.3, ymax = -0.25, alpha = 0.75, fill = "white")+
+  geom_point(alpha = .5, aes(x = time, y = value), color = "firebrick", shape = 1) +
+  scale_x_datetime(date_breaks = "2 days", date_labels = "%b-%d") +
+  scale_y_continuous(breaks = scales::pretty_breaks(n = 6))+
+  theme(axis.text.x = element_text(angle = 270), legend.position = "none") +
+  labs(title = "", y = "", x = "") +
+  facet_wrap(~sensor, scales = "free_y")
+p3.acc.y <- ggplot(acc.reshape %>% dplyr::filter(stream == "accY") %>% dplyr::filter(sensor == "amrs03")) +
+  annotate("rect", xmin = experiment1.start, xmax = experiment1.end, ymin = -0.3, ymax = -0.25, alpha = 0.75, fill = "white")+
+  annotate("rect", xmin = experiment2.start, xmax = experiment2.end, ymin = -0.3, ymax = -0.25, alpha = 0.75, fill = "black")+
+  geom_point(alpha = .5, aes(x = time, y = value), color = "blue", shape = 1) +
+  scale_x_datetime(date_breaks = "2 days", date_labels = "%b-%d") +
+  scale_y_continuous(breaks = scales::pretty_breaks(n = 6))+
+  theme(axis.text.x = element_text(angle = 270), legend.position = "none") +
+  labs(title = "", y = "", x = "") +
+  facet_wrap(~sensor, scales = "free_y")
+gridExtra::grid.arrange(p1.acc.y, p2.acc.y, p3.acc.y, nrow = 1,
+                        top = grid::textGrob("Averaged (1-min) Acceleration Y measurements",gp=gpar(fontsize=20,font=3)), 
+                        bottom = grid::textGrob("Black shadding indicates general filter applied, \n\t\twhite shading indicates low-mag filter applied",gp=gpar(fontsize=12,font=3))
+                          )
+p1.acc.z <- ggplot(acc.reshape %>% dplyr::filter(stream == "accZ") %>% dplyr::filter(sensor == "amrs01")) +
+  annotate("rect", xmin = experiment1.start, xmax = experiment2.end, ymin = 9.7, ymax = 9.85, alpha = 0.75, fill = "black")+
+  geom_point(alpha = .5, aes(x = time, y = value), color = "violet", shape = 1) +
+  scale_x_datetime(date_breaks = "2 days", date_labels = "%b-%d") +
+  scale_y_continuous(breaks = scales::pretty_breaks(n = 6))+
+  theme(axis.text.x = element_text(angle = 270), legend.position = "none") +
+  labs(title = "", y = "Degrees", x = "") +
+  facet_wrap(~sensor, scales = "free_y")
+p2.acc.z <- ggplot(acc.reshape %>% dplyr::filter(stream == "accZ") %>% dplyr::filter(sensor == "amrs02")) +
+  annotate("rect", xmin = experiment1.start, xmax = experiment1.end, ymin = 9.7, ymax = 9.85, alpha = 0.75, fill = "black")+
+  annotate("rect", xmin = experiment2.start, xmax = experiment2.end, ymin = 9.7, ymax = 9.85, alpha = 0.75, fill = "white")+
+  geom_point(alpha = .5, aes(x = time, y = value), color = "firebrick", shape = 1) +
+  scale_x_datetime(date_breaks = "2 days", date_labels = "%b-%d") +
+  scale_y_continuous(breaks = scales::pretty_breaks(n = 6))+
+  theme(axis.text.x = element_text(angle = 270), legend.position = "none") +
+  labs(title = "", y = "", x = "") +
+  facet_wrap(~sensor, scales = "free_y")
+p3.acc.z <- ggplot(acc.reshape %>% dplyr::filter(stream == "accZ") %>% dplyr::filter(sensor == "amrs03")) +
+  annotate("rect", xmin = experiment1.start, xmax = experiment1.end, ymin = 9.7, ymax = 9.85, alpha = 0.75, fill = "white")+
+  annotate("rect", xmin = experiment2.start, xmax = experiment2.end, ymin = 9.7, ymax = 9.85, alpha = 0.75, fill = "black")+
+  geom_point(alpha = .5, aes(x = time, y = value), color = "blue", shape = 1) +
+  scale_x_datetime(date_breaks = "2 days", date_labels = "%b-%d") +
+  scale_y_continuous(breaks = scales::pretty_breaks(n = 6))+
+  theme(axis.text.x = element_text(angle = 270), legend.position = "none") +
+  labs(title = "", y = "", x = "") +
+  facet_wrap(~sensor, scales = "free_y")
+gridExtra::grid.arrange(p1.acc.z, p2.acc.z, p3.acc.z, nrow = 1,
+                        top = grid::textGrob("Averaged  (1-min) Acceleration Z measurements",gp=gpar(fontsize=20,font=3)), 
+                        bottom = grid::textGrob("Black shadding indicates general filter applied, \n\t\twhite shading indicates low-mag filter applied",gp=gpar(fontsize=12,font=3))
+                          )
+```
+
+```{r, layout = "l-page"}
+#Ploting 1:1 comparison each soniAmrs
+require(stats)
+# Westerly wind will give us better data
+dirOut <- "N:/Science/FIUData/kstyers/amrs.cmpr/"
+data.plot <- data.table()
+data.plot$soniAmrs01_mean_avg60.angXaxs = bigData$soniAmrs01_mean_avg60$angXaxs
+data.plot$soniAmrs02_mean_avg60.angXaxs = bigData$soniAmrs02_mean_avg60$angXaxs
+data.plot$soniAmrs03_mean_avg60.angXaxs = bigData$soniAmrs03_mean_avg60$angXaxs
+data.plot$soniAmrs01_mean_avg60.angYaxs = bigData$soniAmrs01_mean_avg60$angYaxs
+data.plot$soniAmrs02_mean_avg60.angYaxs = bigData$soniAmrs02_mean_avg60$angYaxs
+data.plot$soniAmrs03_mean_avg60.angYaxs = bigData$soniAmrs03_mean_avg60$angYaxs
+data.plot$soniAmrs01_mean_avg60.angZaxs = bigData$soniAmrs01_mean_avg60$angZaxs
+data.plot$soniAmrs02_mean_avg60.angZaxs = bigData$soniAmrs02_mean_avg60$angZaxs
+data.plot$soniAmrs03_mean_avg60.angZaxs = bigData$soniAmrs03_mean_avg60$angZaxs
+data.plot <- data.plot %>%
+  dplyr::filter(is.na(soniAmrs01_mean_avg60.angXaxs) == FALSE) %>%
+  dplyr::filter(is.na(soniAmrs02_mean_avg60.angXaxs) == FALSE) %>%
+  dplyr::filter(is.na(soniAmrs03_mean_avg60.angXaxs) == FALSE) %>%
+  dplyr::filter(is.na(soniAmrs01_mean_avg60.angYaxs) == FALSE) %>%
+  dplyr::filter(is.na(soniAmrs02_mean_avg60.angYaxs) == FALSE) %>%
+  dplyr::filter(is.na(soniAmrs03_mean_avg60.angYaxs) == FALSE) %>%
+  dplyr::filter(is.na(soniAmrs01_mean_avg60.angZaxs) == FALSE) %>%
+  dplyr::filter(is.na(soniAmrs02_mean_avg60.angZaxs) == FALSE) %>%
+  dplyr::filter(is.na(soniAmrs03_mean_avg60.angZaxs) == FALSE)
+p1 <- ggplot(data = data.plot, aes(x = soniAmrs01_mean_avg60.angXaxs, y = soniAmrs02_mean_avg60.angXaxs)) +
+  geom_point() + 
+  geom_smooth(method = "lm", color = "red") +
+  labs(title = "soniAmrs 1 and 2", subtitle = "\tangXaxs", x = "soniAmrs01 angXaxs", y = "soniAmrs02 angXaxs")
+p2 <- ggplot(data = data.plot, aes(x = soniAmrs01_mean_avg60.angXaxs, y = soniAmrs03_mean_avg60.angXaxs)) +
+  geom_point() + 
+  geom_smooth(method = "lm", color = "red")+
+  labs(title = "soniAmrs 1 and 3", subtitle = "\tangXaxs",x = "soniAmrs01 angXaxs", y = "soniAmrs03 angXaxs")
+p3 <- ggplot(data = data.plot, aes(x = soniAmrs02_mean_avg60.angXaxs, y = soniAmrs03_mean_avg60.angXaxs)) +
+  geom_point() + 
+  geom_smooth(method = "lm", color = "red")+
+  labs(title = "soniAmrs 2 and 3", subtitle = "\tangXaxs",x = "soniAmrs02 angXaxs", y = "soniAmrs03 angXaxs")
+  
+gridExtra::grid.arrange(p1, p2, p3, nrow = 1)
+p4 <- ggplot(data = data.plot, aes(x = soniAmrs01_mean_avg60.angYaxs, y = soniAmrs02_mean_avg60.angYaxs)) +
+  geom_point() + 
+  geom_smooth(method = "lm", color = "red") +
+  labs(title = "soniAmrs 1 and 2", subtitle = "\tangYaxs", x = "soniAmrs01 angYaxs", y = "soniAmrs02 angYaxs")
+p5 <- ggplot(data = data.plot, aes(x = soniAmrs01_mean_avg60.angYaxs, y = soniAmrs03_mean_avg60.angYaxs)) +
+  geom_point() + 
+  geom_smooth(method = "lm", color = "red")+
+  labs(title = "soniAmrs 1 and 3", subtitle = "\tangYaxs",x = "soniAmrs01 angYaxs", y = "soniAmrs03 angYaxs")
+p6 <- ggplot(data = data.plot, aes(x = soniAmrs02_mean_avg60.angYaxs, y = soniAmrs03_mean_avg60.angYaxs)) +
+  geom_point() + 
+  geom_smooth(method = "lm", color = "red")+
+  labs(title = "soniAmrs 2 and 3", subtitle = "\tangYaxs",x = "soniAmrs02 angYaxs", y = "soniAmrs03 angYaxs")
+  
+gridExtra::grid.arrange(p4, p5, p6, nrow = 1)
+p7 <- ggplot(data = data.plot, aes(x = soniAmrs01_mean_avg60.angZaxs, y = soniAmrs02_mean_avg60.angZaxs)) +
+  geom_point() + 
+  geom_smooth(method = "lm", color = "red") +
+  labs(title = "soniAmrs 1 and 2", subtitle = "\tangZaxs", x = "soniAmrs01 angZaxs", y = "soniAmrs02 angZaxs")
+p8 <- ggplot(data = data.plot, aes(x = soniAmrs01_mean_avg60.angZaxs, y = soniAmrs03_mean_avg60.angZaxs)) +
+  geom_point() + 
+  geom_smooth(method = "lm", color = "red")+
+  labs(title = "soniAmrs 1 and 3", subtitle = "\tangZaxs",x = "soniAmrs01 angZaxs", y = "soniAmrs03 angZaxs")
+p9 <- ggplot(data = data.plot, aes(x = soniAmrs02_mean_avg60.angZaxs, y = soniAmrs03_mean_avg60.angZaxs)) +
+  geom_point() + 
+  geom_smooth(method = "lm", color = "red")+
+  labs(title = "soniAmrs 2 and 3", subtitle = "\tangZaxs",x = "soniAmrs02 angZaxs", y = "soniAmrs03 angZaxs")
+  
+gridExtra::grid.arrange(p7, p8, p9, nrow = 1)
+```
