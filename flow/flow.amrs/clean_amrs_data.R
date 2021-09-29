@@ -24,8 +24,9 @@ compare_amrs_data = function(){
   test_data_lookup = aws.s3::get_bucket_df(bucket = sensor_test_bucket, prefix = "sensor/amrs/round_3/") %>% 
     dplyr::filter(Size > 0) %>%  dplyr::filter(stringr::str_detect(string = Key, pattern = ".fst")) %>% 
     dplyr::mutate(date = stringr::str_extract(Key, "[0-9]{4}-[0-9]{2}-[0-9]{2}")) %>% 
-    dplyr::filter(date %not% dates_already_procesed$date) %>% 
-    dplyr::arrange(dplyr::desc(date))
+    # dplyr::filter(date %not% dates_already_procesed$date) %>%
+    dplyr::filter(date >= "2021-08-22" & date != "2021-08-29") %>% # & date != "2021-08-21") %>% 
+    dplyr::arrange(dplyr::desc(date)) 
   
   test_dates = unique(test_data_lookup$date)
   
@@ -232,10 +233,20 @@ compare_amrs_data = function(){
       dskData[[idx]] <- dataList[[idx]][,which(!names(dataList[[idx]]) %in% c("idx", "diag", "diag32","time"))] # Pick the variables to despike
       for(idxVar in colnames(dskData[[idx]])) {
         
-        base::source("~/eddy/neon-sensor-test/flow/flow.amrs/def.amrs.cmpr.def.dspk.br86.R")
-        
+        # base::source("~/eddy/neon-sensor-test/flow/flow.amrs/def.amrs.cmpr.def.dspk.br86.R")
+        # Dates that fail
+        # 2021-08-20
+        # 2021-08-21
+        # 2021-08-22
+        # 2021-08-
+        # 2021-08-
+        # 2021-08-
+        # 2021-08-29
         message(paste0(Sys.time(), ": \tDespiking ", idx, "'s ", idxVar, " field."))
-        dskData[[idx]][,idxVar] <- def.dspk.br86(
+        # if(idx == "soniAmrs03" & idxVar == "accZaxsDiff"){
+        #   browser()
+        # }
+        dskData[[idx]][,idxVar] <- try(eddy4R.qaqc::def.dspk.br86(
           # input data, univariate vector of integers or numerics
           dataInp = as.vector(dskData[[idx]][,idxVar]),
           # filter width
@@ -245,6 +256,7 @@ compare_amrs_data = function(){
           # resolution threshold
           ThshReso = 10
         )$dataOut
+        )
       }
     }
     
@@ -323,18 +335,25 @@ compare_amrs_data = function(){
         dskData[[idx]]$accZaxsDiffIntg <- dskData[[idx]]$accZaxsDiff/Freq40
         
         # #calculate the inertial velocities
-        # dskData[[idx]]$accXaxsDiffSum <- rollapply(data = dskData[[idx]]$accXaxsDiffIntg, width = intgWndw,
+        # dskData[[idx]]$accXaxsDiffSum <- zoo::rollapply(data = dskData[[idx]]$accXaxsDiffIntg, width = intgWndw,
         #                                             FUN = sum, by = 1, fill = NA, na.rm = TRUE, align = "right")
-        # dskData[[idx]]$accYaxsDiffSum <- rollapply(data = dskData[[idx]]$accYaxsDiffIntg, width = intgWndw,
+        # dskData[[idx]]$accYaxsDiffSum <- zoo::rollapply(data = dskData[[idx]]$accYaxsDiffIntg, width = intgWndw,
         #                                             FUN = sum, by = 1, fill = NA, na.rm = TRUE, align = "right")
-        # dskData[[idx]]$accZaxsDiffSum <- rollapply(data = dskData[[idx]]$accZaxsDiffIntg, width = intgWndw,
+        # dskData[[idx]]$accZaxsDiffSum <- zoo::rollapply(data = dskData[[idx]]$accZaxsDiffIntg, width = intgWndw,
         #                                             FUN = sum, by = 1, fill = NA, na.rm = TRUE, align = "right")
         
+        # zoo::na.approx(dskData[[idx]]$accXaxsDiffIntg, maxgap = 2)
+        # KS edits 2021-09-27 
+        # Added zoo::na.approx(maxgap = 41) as this will approximate the values that are na for anthing with a gap of 41 (aka 40 aka 1 second)
         #apply low filter and substract the low filter out
-        dskData[[idx]]$accXaxsDiffFilt <- dskData[[idx]]$accXaxsDiffIntg - (stats::filter(dskData[[idx]]$accXaxsDiffIntg, rep(1 / filtWidt, filtWidt), sides=2))
-        dskData[[idx]]$accYaxsDiffFilt <- dskData[[idx]]$accYaxsDiffIntg - (stats::filter(dskData[[idx]]$accYaxsDiffIntg, rep(1 / filtWidt, filtWidt), sides=2))
-        dskData[[idx]]$accZaxsDiffFilt <- dskData[[idx]]$accZaxsDiffIntg - (stats::filter(dskData[[idx]]$accZaxsDiffIntg, rep(1 / filtWidt, filtWidt), sides=2))
+        # browser()
+        dskData[[idx]]$accXaxsDiffFilt <- dskData[[idx]]$accXaxsDiffIntg - (stats::filter(zoo::na.approx(dskData[[idx]]$accXaxsDiffIntg, maxgap = 41, na.rm = FALSE), rep(1 / filtWidt, filtWidt), sides=2))
+        dskData[[idx]]$accYaxsDiffFilt <- dskData[[idx]]$accYaxsDiffIntg - (stats::filter(zoo::na.approx(dskData[[idx]]$accYaxsDiffIntg, maxgap = 41, na.rm = FALSE), rep(1 / filtWidt, filtWidt), sides=2))
+        dskData[[idx]]$accZaxsDiffFilt <- dskData[[idx]]$accZaxsDiffIntg - (stats::filter(zoo::na.approx(dskData[[idx]]$accZaxsDiffIntg, maxgap = 41, na.rm = FALSE), rep(1 / filtWidt, filtWidt), sides=2))
         
+        message(paste0(100 * round(sum(is.na(dskData[[idx]]$accXaxsDiffFilt))/length(dskData[[idx]]$accXaxsDiffFilt),2), " % na"))
+        message(paste0(100 * round(sum(is.na(dskData[[idx]]$accYaxsDiffFilt))/length(dskData[[idx]]$accYaxsDiffFilt),2), " % na"))
+        message(paste0(100 * round(sum(is.na(dskData[[idx]]$accZaxsDiffFilt))/length(dskData[[idx]]$accZaxsDiffFilt),2), " % na"))
         
       }
     }
@@ -461,7 +480,7 @@ compare_amrs_data = function(){
     
     ############################################
     
-    stats.reshape.1 <- stats.soniAmrs02 %>%
+    soniAmrs02_rmsd_diff_mean_prsc_rsq_sample <- stats.soniAmrs02 %>%
       reshape2::melt() %>%
       tidyr::separate(variable, into = c("measurement", "stat")) %>%
       dplyr::mutate(test.date = date_i) %>% 
@@ -545,6 +564,13 @@ compare_amrs_data = function(){
     stats.soniAmrs03$avelZaxsDeg.prcs      <- out$soniAmrs03$avelZaxsDeg[3]
     stats.soniAmrs03$avelZaxsDeg.rsq       <- out$soniAmrs03$avelZaxsDeg[4]
     stats.soniAmrs03$avelZaxsDeg.sample    <- out$soniAmrs03$avelZaxsDeg[5]
+    
+    soniAmrs03_rmsd_diff_mean_prsc_rsq_sample <- stats.soniAmrs03 %>%
+      reshape2::melt() %>%
+      tidyr::separate(variable, into = c("measurement", "stat")) %>%
+      dplyr::mutate(test.date = date_i) %>% 
+      dplyr::mutate(sensor = "soniAmrs03") %>%
+      dplyr::select(sensor, test.date, measurement, stat, value)
 
     ##########################################################################################################
     #calculate resolution
@@ -560,144 +586,107 @@ compare_amrs_data = function(){
         colnames(reso[[idxSens]][[idxVar]]) <- idxVar
         reso[[idxSens]][[idxVar]][[idxVar]] <- abs(reso[[idxSens]][[idxVar]][[idxVar]])
         #plot histogram
-        if (idxVar %in% c("angXaxsDeg", "angYaxsDeg", "angZaxsDeg")) {
-          xlimMax <- 0.1
-        }else {
-          xlimMax <- 0.5
-        }
-        png(filename = paste0(here(), "/data/2021_AMRS_Round_3/plots/histReso_", idxSens,idxVar,".png"))
-        hist(reso[[idxSens]][[idxVar]][[idxVar]], breaks = 500, xlim = c(0,xlimMax), xlab = idxVar, main = idxSens)
-        dev.off()
+        # if (idxVar %in% c("angXaxsDeg", "angYaxsDeg", "angZaxsDeg")) {
+        #   xlimMax <- 0.1
+        # }else {
+        #   xlimMax <- 0.5
+        # }
+        # png(filename = paste0(here(), "/data/2021_AMRS_Round_3/plots/histReso_", idxSens,idxVar,".png"))
+        # hist(reso[[idxSens]][[idxVar]][[idxVar]], breaks = 500, xlim = c(0,xlimMax), xlab = idxVar, main = idxSens)
+        # dev.off()
       }
     }
     
     ### soniAmrs01 Tidying
     message(paste0(Sys.time(), ": Tidying soniAmrs01 reso data..."))
-    
-    stats.soniAmrs01 <- data.table()
-    
+    # browser()
     # Grab the median resolution
-    stats.soniAmrs01$angXaxsDeg.reso <- summary(reso$soniAmrs01$angXaxsDeg)[3] 
-    stats.soniAmrs01$angYaxsDeg.reso <- summary(reso$soniAmrs01$angYaxsDeg)[3] 
-    stats.soniAmrs01$angZaxsDeg.reso <- summary(reso$soniAmrs01$angZaxsDeg)[3] 
-    stats.soniAmrs01$avelXaxsDeg.reso <- summary(reso$soniAmrs01$avelXaxsDeg)[3] 
-    stats.soniAmrs01$avelYaxsDeg.reso <- summary(reso$soniAmrs01$avelYaxsDeg)[3] 
-    stats.soniAmrs01$avelZaxsDeg.reso <- summary(reso$soniAmrs01$avelZaxsDeg)[3] 
+    soniAmrs01_angXaxsDeg_reso  = as.numeric(summary(reso$soniAmrs01$angXaxsDeg$angXaxsDeg)[3])
+    soniAmrs01_angYaxsDeg_reso  = as.numeric(summary(reso$soniAmrs01$angYaxsDeg$angYaxsDeg)[3])
+    soniAmrs01_angZaxsDeg_reso  = as.numeric(summary(reso$soniAmrs01$angZaxsDeg$angZaxsDeg)[3])
+    soniAmrs01_avelXaxsDeg_reso = as.numeric(summary(reso$soniAmrs01$avelXaxsDeg$avelXaxsDeg)[3])
+    soniAmrs01_avelYaxsDeg_reso = as.numeric(summary(reso$soniAmrs01$avelYaxsDeg$avelYaxsDeg)[3])
+    soniAmrs01_avelZaxsDeg_reso = as.numeric(summary(reso$soniAmrs01$avelZaxsDeg$avelZaxsDeg)[3])
     
-    # Tidy the data a little
-    stats.soniAmrs01 <- stats.soniAmrs01 %>%
-      tidyr::separate(angXaxsDeg.reso, into = c("stat","angXaxsDeg.reso"), sep = ":") %>%
-      tidyr::separate(angYaxsDeg.reso, into = c("stat","angYaxsDeg.reso"), sep = ":") %>%
-      tidyr::separate(angZaxsDeg.reso, into = c("stat","angZaxsDeg.reso"), sep = ":") %>%
-      tidyr::separate(avelXaxsDeg.reso, into = c("stat","avelXaxsDeg.reso"), sep = ":") %>%
-      tidyr::separate(avelYaxsDeg.reso, into = c("stat","avelYaxsDeg.reso"), sep = ":") %>%
-      tidyr::separate(avelZaxsDeg.reso, into = c("stat","avelZaxsDeg.reso"), sep = ":") %>%
-      dplyr::select(-stat)
     
-    # Transpose the data
-    stats.soniAmrs01.reshape <- data.table::as.data.table(stats.soniAmrs01) %>%
-      data.table::transpose()
-    
-    # Name the values - tidy style
-    stats.soniAmrs01.reshape$measurement <- colnames(stats.soniAmrs01)
-    names(stats.soniAmrs01.reshape) <- c("value", "measurement")
-    
-    # Finalize the data
-    stats.soniAmrs01.reshape <- stats.soniAmrs01.reshape %>%
+    soniAmrs01_reso <- data.table::data.table(
+      "measurement" = c("angXaxsDeg","angYaxsDeg", "angZaxsDeg","avelXaxsDeg", "avelYaxsDeg", "avelZaxsDeg"), 
+      "value" = c(soniAmrs01_angXaxsDeg_reso, soniAmrs01_angYaxsDeg_reso, soniAmrs01_angZaxsDeg_reso,soniAmrs01_avelXaxsDeg_reso, soniAmrs01_avelYaxsDeg_reso,soniAmrs01_avelZaxsDeg_reso)
+    ) %>%
       dplyr::mutate(test.date = date_i) %>% 
       dplyr::mutate(sensor = "soniAmrs01") %>%
-      tidyr::separate(measurement, into = c("measurement", "stat")) %>%
+      dplyr::mutate(stat = "reso") %>% 
       dplyr::select(sensor, test.date, measurement, stat, value)
     
     ### soniAmrs02 Tidying
     message(paste0(Sys.time(), ": Tidying soniAmrs02 reso data..."))
     
-    stats.soniAmrs02.reso <- data.table()
+    # Pull out median resolution as a numeric
+    soniAmrs02_angXaxsDeg_reso  = as.numeric(summary(reso$soniAmrs02$angXaxsDeg$angXaxsDeg)[3])
+    soniAmrs02_angYaxsDeg_reso  = as.numeric(summary(reso$soniAmrs02$angYaxsDeg$angYaxsDeg)[3])
+    soniAmrs02_angZaxsDeg_reso  = as.numeric(summary(reso$soniAmrs02$angZaxsDeg$angZaxsDeg)[3])
+    soniAmrs02_avelXaxsDeg_reso = as.numeric(summary(reso$soniAmrs02$avelXaxsDeg$avelXaxsDeg)[3])
+    soniAmrs02_avelYaxsDeg_reso = as.numeric(summary(reso$soniAmrs02$avelYaxsDeg$avelYaxsDeg)[3])
+    soniAmrs02_avelZaxsDeg_reso = as.numeric(summary(reso$soniAmrs02$avelZaxsDeg$avelZaxsDeg)[3])
     
-    # Grab the median resolution
-    stats.soniAmrs02.reso$angXaxsDeg.reso <- summary(reso$soniAmrs02$angXaxsDeg)[3] 
-    stats.soniAmrs02.reso$angYaxsDeg.reso <- summary(reso$soniAmrs02$angYaxsDeg)[3] 
-    stats.soniAmrs02.reso$angZaxsDeg.reso <- summary(reso$soniAmrs02$angZaxsDeg)[3] 
-    stats.soniAmrs02.reso$avelXaxsDeg.reso <- summary(reso$soniAmrs02$avelXaxsDeg)[3] 
-    stats.soniAmrs02.reso$avelYaxsDeg.reso <- summary(reso$soniAmrs02$avelYaxsDeg)[3] 
-    stats.soniAmrs02.reso$avelZaxsDeg.reso <- summary(reso$soniAmrs02$avelZaxsDeg)[3] 
-    
-    # Tidy the data a little
-    stats.soniAmrs02.reso <- stats.soniAmrs02.reso %>%
-      tidyr::separate(angXaxsDeg.reso, into = c("stat","angXaxsDeg.reso"), sep = ":") %>%
-      tidyr::separate(angYaxsDeg.reso, into = c("stat","angYaxsDeg.reso"), sep = ":") %>%
-      tidyr::separate(angZaxsDeg.reso, into = c("stat","angZaxsDeg.reso"), sep = ":") %>%
-      tidyr::separate(avelXaxsDeg.reso, into = c("stat","avelXaxsDeg.reso"), sep = ":") %>%
-      tidyr::separate(avelYaxsDeg.reso, into = c("stat","avelYaxsDeg.reso"), sep = ":") %>%
-      tidyr::separate(avelZaxsDeg.reso, into = c("stat","avelZaxsDeg.reso"), sep = ":") %>%
-      dplyr::select(-stat)
-    
-    # Transpose the data
-    stats.soniAmrs02.reso.reshape <- data.table::as.data.table(stats.soniAmrs02.reso) %>%
-      data.table::transpose()
-    
-    # Name the values - tidy style
-    stats.soniAmrs02.reso.reshape$measurement <- colnames(stats.soniAmrs02.reso)
-    names(stats.soniAmrs02.reso.reshape) <- c("value", "measurement")
-    
-    # Finalize the data
-    stats.soniAmrs02.reso.reshape <- stats.soniAmrs02.reso.reshape %>%
+    # Pull the resolutions into a single dataframe for all the terms
+    soniAmrs02_reso <- data.table::data.table(
+      "measurement" = c("angXaxsDeg","angYaxsDeg", "angZaxsDeg","avelXaxsDeg", "avelYaxsDeg", "avelZaxsDeg"), 
+      "value" = c(soniAmrs02_angXaxsDeg_reso, 
+                  soniAmrs02_angYaxsDeg_reso, 
+                  soniAmrs02_angZaxsDeg_reso,
+                  soniAmrs02_avelXaxsDeg_reso, 
+                  soniAmrs02_avelYaxsDeg_reso,
+                  soniAmrs02_avelZaxsDeg_reso
+                  )
+    ) %>%
       dplyr::mutate(test.date = date_i) %>% 
       dplyr::mutate(sensor = "soniAmrs02") %>%
-      tidyr::separate(measurement, into = c("measurement", "stat")) %>%
+      dplyr::mutate(stat = "reso") %>% 
       dplyr::select(sensor, test.date, measurement, stat, value)
     
     ### soniAmrs3 Tidying
     message(paste0(Sys.time(), ": Tidying soniAmrs03 reso data...") )
     
-    stats.soniAmrs03.reso <- data.table()
+    # Pull out median resolution as a numeric
+    soniAmrs03_angXaxsDeg_reso  = as.numeric(summary(reso$soniAmrs03$angXaxsDeg$angXaxsDeg)[3])
+    soniAmrs03_angYaxsDeg_reso  = as.numeric(summary(reso$soniAmrs03$angYaxsDeg$angYaxsDeg)[3])
+    soniAmrs03_angZaxsDeg_reso  = as.numeric(summary(reso$soniAmrs03$angZaxsDeg$angZaxsDeg)[3])
+    soniAmrs03_avelXaxsDeg_reso = as.numeric(summary(reso$soniAmrs03$avelXaxsDeg$avelXaxsDeg)[3])
+    soniAmrs03_avelYaxsDeg_reso = as.numeric(summary(reso$soniAmrs03$avelYaxsDeg$avelYaxsDeg)[3])
+    soniAmrs03_avelZaxsDeg_reso = as.numeric(summary(reso$soniAmrs03$avelZaxsDeg$avelZaxsDeg)[3])
     
-    # Grab the median resolution
-    stats.soniAmrs03.reso$angXaxsDeg.reso <- summary(reso$soniAmrs03$angXaxsDeg)[3] 
-    stats.soniAmrs03.reso$angYaxsDeg.reso <- summary(reso$soniAmrs03$angYaxsDeg)[3] 
-    stats.soniAmrs03.reso$angZaxsDeg.reso <- summary(reso$soniAmrs03$angZaxsDeg)[3] 
-    stats.soniAmrs03.reso$avelXaxsDeg.reso <- summary(reso$soniAmrs03$avelXaxsDeg)[3] 
-    stats.soniAmrs03.reso$avelYaxsDeg.reso <- summary(reso$soniAmrs03$avelYaxsDeg)[3] 
-    stats.soniAmrs03.reso$avelZaxsDeg.reso <- summary(reso$soniAmrs03$avelZaxsDeg)[3] 
-    
-    # Tidy the data a little
-    stats.soniAmrs03.reso <- stats.soniAmrs03.reso %>%
-      tidyr::separate(angXaxsDeg.reso, into = c("stat","angXaxsDeg.reso"), sep = ":") %>%
-      tidyr::separate(angYaxsDeg.reso, into = c("stat","angYaxsDeg.reso"), sep = ":") %>%
-      tidyr::separate(angZaxsDeg.reso, into = c("stat","angZaxsDeg.reso"), sep = ":") %>%
-      tidyr::separate(avelXaxsDeg.reso, into = c("stat","avelXaxsDeg.reso"), sep = ":") %>%
-      tidyr::separate(avelYaxsDeg.reso, into = c("stat","avelYaxsDeg.reso"), sep = ":") %>%
-      tidyr::separate(avelZaxsDeg.reso, into = c("stat","avelZaxsDeg.reso"), sep = ":") %>%
-      dplyr::select(-stat)
-    
-    # Transpose the data
-    stats.soniAmrs03.reso.reshape <- data.table::as.data.table(stats.soniAmrs03.reso) %>%
-      data.table::transpose()
-    
-    # Name the values - tidy style
-    stats.soniAmrs03.reso.reshape$measurement <- colnames(stats.soniAmrs03.reso)
-    names(stats.soniAmrs03.reso.reshape) <- c("value", "measurement")
-    
-    # Finalize the data
-    stats.soniAmrs03.reso.reshape <- stats.soniAmrs03.reso.reshape %>%
+    # Pull the resolutions into a single dataframe for all the terms
+    soniAmrs03_reso <- data.table::data.table(
+      "measurement" = c("angXaxsDeg","angYaxsDeg", "angZaxsDeg","avelXaxsDeg", "avelYaxsDeg", "avelZaxsDeg"), 
+      "value" = c(soniAmrs03_angXaxsDeg_reso, 
+                  soniAmrs03_angYaxsDeg_reso, 
+                  soniAmrs03_angZaxsDeg_reso,
+                  soniAmrs03_avelXaxsDeg_reso, 
+                  soniAmrs03_avelYaxsDeg_reso,
+                  soniAmrs03_avelZaxsDeg_reso
+      )
+    ) %>%
       dplyr::mutate(test.date = date_i) %>% 
       dplyr::mutate(sensor = "soniAmrs03") %>%
-      tidyr::separate(measurement, into = c("measurement", "stat")) %>%
+      dplyr::mutate(stat = "reso") %>% 
       dplyr::select(sensor, test.date, measurement, stat, value)
     
-    ############################
+    # Combine all the stats
+    soniAmrs_final_stats <- data.table::rbindlist(
+      l = list(
+        soniAmrs02_rmsd_diff_mean_prsc_rsq_sample, 
+        soniAmrs03_rmsd_diff_mean_prsc_rsq_sample, 
+        soniAmrs01_reso,
+        soniAmrs02_reso,
+        soniAmrs03_reso
+        )
+      )
     
-    stats.reshape.2 <- stats.soniAmrs03 %>%
-      reshape2::melt() %>%
-      tidyr::separate(variable, into = c("measurement", "stat")) %>%
-      dplyr::mutate(test.date = date_i) %>% 
-      dplyr::mutate(sensor = "soniAmrs03") %>%
-      dplyr::select(sensor, test.date, measurement, stat, value)
-    
-    stats.reshape.final <- data.table::rbindlist(l = list(stats.reshape.1, stats.reshape.2, stats.soniAmrs01.reshape,stats.soniAmrs02.reso.reshape,stats.soniAmrs03.reso.reshape))
+    message(soniAmrs_final_stats %>% dplyr::filter(stat == "reso"))
     
     message(paste0(Sys.time(), ": Saving rmsd.diff.prcs.rsq.reso file!. . ."))
-    saveRDS(stats.reshape.final, paste0(here::here(),"/data/2021_AMRS_Round_3/stats/", date_i,".RDS"))
+    saveRDS(soniAmrs_final_stats, paste0(here::here(),"/data/2021_AMRS_Round_3/stats/", date_i,".RDS"))
 
     message(paste0(Sys.time(), ": Aggregating data"))
     agg_start = Sys.time()
