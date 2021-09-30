@@ -230,12 +230,13 @@ def.dspk.br86 <- function(
           ###
           
           
-          
           #number of histogram bins
           #rpt$numBinFinl <- rpt$NumBin * rpt$iter + 1
           rpt$locBin <- base::seq(base::min(rpt$histDiff, na.rm=TRUE), base::max(rpt$histDiff, na.rm=TRUE), length.out=rpt$numBinFinl)
           #calculate histogram
+          browser()
           rpt$histDiffFinl <- graphics::hist(rpt$histDiff, breaks = rpt$locBin, plot=FALSE)
+          message(rpt$locBin)
           
           #determine bin with most values
           rpt$idxBinMax <- base::which.max(rpt$histDiffFinl$counts)
@@ -247,9 +248,10 @@ def.dspk.br86 <- function(
           
           #minimum threshold
           rpt$idxThshBinMin <- base::which(rpt$histDiffFinl$counts[rpt$idxBinMin] == 0 & rpt$idxBinMin < rpt$idxBinMax)
+          message(rpt$idxThshBinMin)
           #maximum threshold
           rpt$idxThshBinMax <- base::which(rpt$histDiffFinl$counts[rpt$idxBinMin] == 0 & rpt$idxBinMin > rpt$idxBinMax)
-          
+          message(rpt$idxThshBinMax)
           #      #message to screen
           #        print(paste("PDF with ", rpt$numBinFinl, " bins is completed", sep=""))
           

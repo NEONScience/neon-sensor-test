@@ -62,22 +62,15 @@ soniAmrs03_data <- bigData$avg60 %>%
 run_1_duration_dt = soniAmrs01_data %>% 
   dplyr::filter(run == 1) 
 run_1_duration = c(lubridate::ymd_hms(min(run_1_duration_dt$timeBgn)), lubridate::ymd_hms(max(run_1_duration_dt$timeBgn)))
+run_1_duration_date = as.Date(run_1_duration, origin = "1970-01-01")
 run_2_duration_dt = soniAmrs01_data %>% 
   dplyr::filter(run == 2) 
 run_2_duration = c(lubridate::ymd_hms(min(run_2_duration_dt$timeBgn)) , lubridate::ymd_hms(max(run_2_duration_dt$timeBgn)))
+run_2_duration_date = as.Date(run_2_duration, origin = "1970-01-01")
 run_3_duration_dt = soniAmrs01_data %>% 
   dplyr::filter(run == 3) 
 run_3_duration = c(lubridate::ymd_hms(min(run_3_duration_dt$timeBgn)) , lubridate::ymd_hms(max(run_3_duration_dt$timeBgn)-1))
-
-# run_3_duration_dt %>% 
-#   dplyr::mutate(date = as.Date(timeBgn, origin = "1970-01-01")) %>% 
-#   dplyr::group_by(date) %>% 
-#   dplyr::summarise(
-#     is_na_ang = sum(is.na(angXaxsDeg))/length(angXaxsDeg),
-#     is_na_acc = sum(is.na(accXaxs))/length(accXaxs)
-#   )
-
-
+run_3_duration_date = as.Date(run_3_duration, origin = "1970-01-01")
 
 soniAmrs_plot_data <- data.table::rbindlist(l = list(soniAmrs01_data, soniAmrs02_data, soniAmrs03_data))
 ```
@@ -99,7 +92,7 @@ ang.plot = bigData$avg60 %>%
 p3.ang_min = 87.25
 p3.ang_max = 88.25
 
-p3.ang <-=ggplot(ang.plot %>% dplyr::filter(variable == "angZaxsDeg")) +
+p3.ang <- ggplot(ang.plot %>% dplyr::filter(variable == "angZaxsDeg")) +
   annotate("rect", xmin = run_1_duration[1], xmax = run_1_duration[2], ymin = p3.ang_min, ymax = p3.ang_max, alpha = 0.65, fill = "green")+
   annotate("rect", xmin = run_2_duration[1], xmax = run_2_duration[2], ymin = p3.ang_min, ymax = p3.ang_max, alpha = 0.65, fill = "grey")+
   annotate("rect", xmin = run_3_duration[1], xmax = run_3_duration[2], ymin = p3.ang_min, ymax = p3.ang_max, alpha = 0.65, fill = "black")+
@@ -195,7 +188,7 @@ for(i in stat_files){
 }
 stats.data <- stats.data %>%
   dplyr::mutate(value = as.numeric(value))
-options(scipen=1)
+options(scipen=999)
 ```
 
 ## Velocities  
@@ -212,10 +205,10 @@ acc_axsDiffFilt.prcs <- stats.data %>%
   dplyr::filter(stat %in% c("prcs"))%>%
   dplyr::mutate(test_date = as.Date(test.date, origin = "1970-01-01")) %>% dplyr::select(-test.date) %>% 
   dplyr::mutate(value = round(value, 6)) %>%
-  dplyr::mutate(setting = ifelse(test = sensor == "soniAmrs02" & test_date %in% seq.Date(from = run_2_duration[1], to = run_2_duration[2], by = "1 day"), yes = "01.04.05", no = NA)) %>% 
-  dplyr::mutate(setting = ifelse(test = sensor == "soniAmrs02" & test_date %in% seq.Date(from = run_3_duration[1], to = run_3_duration[2], by = "1 day"), yes = "01.05.01", no = setting)) %>% 
-  dplyr::mutate(setting = ifelse(test = sensor == "soniAmrs03" & test_date %in% seq.Date(from = run_2_duration[1], to = run_2_duration[2], by = "1 day"), yes = "01.05.01", no = setting)) %>%
-  dplyr::mutate(setting = ifelse(test = sensor == "soniAmrs03" & test_date %in% seq.Date(from = run_3_duration[1], to = run_3_duration[2], by = "1 day"), yes = "01.04.05", no = setting)) %>% 
+  dplyr::mutate(setting = ifelse(test = sensor == "soniAmrs02" & test_date %in% seq.Date(from = run_2_duration_date[1], to = run_2_duration_date[2], by = "1 day"), yes = "01.04.05", no = NA)) %>% 
+  dplyr::mutate(setting = ifelse(test = sensor == "soniAmrs02" & test_date %in% seq.Date(from = run_3_duration_date[1], to = run_3_duration_date[2], by = "1 day"), yes = "01.05.01", no = setting)) %>% 
+  dplyr::mutate(setting = ifelse(test = sensor == "soniAmrs03" & test_date %in% seq.Date(from = run_2_duration_date[1], to = run_2_duration_date[2], by = "1 day"), yes = "01.05.01", no = setting)) %>%
+  dplyr::mutate(setting = ifelse(test = sensor == "soniAmrs03" & test_date %in% seq.Date(from = run_3_duration_date[1], to = run_3_duration_date[2], by = "1 day"), yes = "01.04.05", no = setting)) %>% 
   dplyr::filter(is.na(setting) == FALSE) %>%
   dplyr::filter(is.na(value) == FALSE) %>%
   dplyr::mutate(value = kableExtra::cell_spec(value, "html", color = ifelse(abs(value) <= 0.05, "#00cc00","firebrick"), background = ifelse(setting == "01.04.05", "white","black"), bold = TRUE)) %>% 
@@ -234,17 +227,15 @@ Both settings <span style="color:#00cc00"><b>PASSED</b></span>
 
 ```{r, layout = "l-screen"}
 
-options(scipens = 999)
-
 acc_axsDiffFilt.diffMean <- stats.data %>%
   dplyr::filter(stringr::str_detect(string = measurement, pattern = "axsDiffFilt") == TRUE) %>%
   dplyr::filter(stat %in% c("diffMean"))%>%
   dplyr::mutate(value = round(value, 7)) %>%
   dplyr::mutate(test_date = as.Date(test.date, origin = "1970-01-01")) %>% dplyr::select(-test.date) %>% 
-  dplyr::mutate(setting = ifelse(test = sensor == "soniAmrs02" & test_date %in% seq.Date(from = run_2_duration[1], to = run_2_duration[2], by = "1 day"), yes = "01.04.05", no = NA)) %>% 
-  dplyr::mutate(setting = ifelse(test = sensor == "soniAmrs02" & test_date %in% seq.Date(from = run_3_duration[1], to = run_3_duration[2], by = "1 day"), yes = "01.05.01", no = setting)) %>% 
-  dplyr::mutate(setting = ifelse(test = sensor == "soniAmrs03" & test_date %in% seq.Date(from = run_2_duration[1], to = run_2_duration[2], by = "1 day"), yes = "01.05.01", no = setting)) %>%
-  dplyr::mutate(setting = ifelse(test = sensor == "soniAmrs03" & test_date %in% seq.Date(from = run_3_duration[1], to = run_3_duration[2], by = "1 day"), yes = "01.04.05", no = setting)) %>% 
+  dplyr::mutate(setting = ifelse(test = sensor == "soniAmrs02" & test_date %in% seq.Date(from = run_2_duration_date[1], to = run_2_duration_date[2], by = "1 day"), yes = "01.04.05", no = NA)) %>% 
+  dplyr::mutate(setting = ifelse(test = sensor == "soniAmrs02" & test_date %in% seq.Date(from = run_3_duration_date[1], to = run_3_duration_date[2], by = "1 day"), yes = "01.05.01", no = setting)) %>% 
+  dplyr::mutate(setting = ifelse(test = sensor == "soniAmrs03" & test_date %in% seq.Date(from = run_2_duration_date[1], to = run_2_duration_date[2], by = "1 day"), yes = "01.05.01", no = setting)) %>%
+  dplyr::mutate(setting = ifelse(test = sensor == "soniAmrs03" & test_date %in% seq.Date(from = run_3_duration_date[1], to = run_3_duration_date[2], by = "1 day"), yes = "01.04.05", no = setting)) %>% 
   dplyr::filter(is.na(setting) == FALSE) %>%
   dplyr::filter(is.na(value) == FALSE) %>%
   dplyr::mutate(value = kableExtra::cell_spec(value, "html", color = ifelse(abs(value) <= 0.1, "#00cc00","firebrick"), background = ifelse(setting == "01.04.05", "white","black"), bold = TRUE)) %>% 
@@ -270,10 +261,10 @@ avel_axsDeg.prcs <- stats.data %>%
   dplyr::filter(stat %in% c("prcs"))%>%
   dplyr::mutate(value = round(value, 7)) %>%
   dplyr::mutate(test_date = as.Date(test.date, origin = "1970-01-01")) %>% dplyr::select(-test.date) %>% 
-  dplyr::mutate(setting = ifelse(test = sensor == "soniAmrs02" & test_date %in% seq.Date(from = run_2_duration[1], to = run_2_duration[2], by = "1 day"), yes = "01.04.05", no = NA)) %>% 
-  dplyr::mutate(setting = ifelse(test = sensor == "soniAmrs02" & test_date %in% seq.Date(from = run_3_duration[1], to = run_3_duration[2], by = "1 day"), yes = "01.05.01", no = setting)) %>% 
-  dplyr::mutate(setting = ifelse(test = sensor == "soniAmrs03" & test_date %in% seq.Date(from = run_2_duration[1], to = run_2_duration[2], by = "1 day"), yes = "01.05.01", no = setting)) %>%
-  dplyr::mutate(setting = ifelse(test = sensor == "soniAmrs03" & test_date %in% seq.Date(from = run_3_duration[1], to = run_3_duration[2], by = "1 day"), yes = "01.04.05", no = setting)) %>% 
+  dplyr::mutate(setting = ifelse(test = sensor == "soniAmrs02" & test_date %in% seq.Date(from = run_2_duration_date[1], to = run_2_duration_date[2], by = "1 day"), yes = "01.04.05", no = NA)) %>% 
+  dplyr::mutate(setting = ifelse(test = sensor == "soniAmrs02" & test_date %in% seq.Date(from = run_3_duration_date[1], to = run_3_duration_date[2], by = "1 day"), yes = "01.05.01", no = setting)) %>% 
+  dplyr::mutate(setting = ifelse(test = sensor == "soniAmrs03" & test_date %in% seq.Date(from = run_2_duration_date[1], to = run_2_duration_date[2], by = "1 day"), yes = "01.05.01", no = setting)) %>%
+  dplyr::mutate(setting = ifelse(test = sensor == "soniAmrs03" & test_date %in% seq.Date(from = run_3_duration_date[1], to = run_3_duration_date[2], by = "1 day"), yes = "01.04.05", no = setting)) %>% 
   dplyr::filter(is.na(setting) == FALSE) %>%
   dplyr::filter(is.na(value) == FALSE) %>%
   dplyr::mutate(value = kableExtra::cell_spec(value, "html", color = ifelse(abs(value) <= 2.0, "#00cc00","firebrick"), background = ifelse(setting == "01.04.05", "white","black"), bold = TRUE)) %>% 
@@ -294,10 +285,10 @@ avel_axsDeg.reso <- stats.data %>%
   dplyr::filter(stat %in% c("reso")) %>%
   dplyr::mutate(value = round(value, 7)) %>%
   dplyr::mutate(test_date = as.Date(test.date, origin = "1970-01-01")) %>% dplyr::select(-test.date) %>% 
-  dplyr::mutate(setting = ifelse(test = sensor == "soniAmrs02" & test_date %in% seq.Date(from = run_2_duration[1], to = run_2_duration[2], by = "1 day"), yes = "01.04.05", no = NA)) %>% 
-  dplyr::mutate(setting = ifelse(test = sensor == "soniAmrs02" & test_date %in% seq.Date(from = run_3_duration[1], to = run_3_duration[2], by = "1 day"), yes = "01.05.01", no = setting)) %>% 
-  dplyr::mutate(setting = ifelse(test = sensor == "soniAmrs03" & test_date %in% seq.Date(from = run_2_duration[1], to = run_2_duration[2], by = "1 day"), yes = "01.05.01", no = setting)) %>%
-  dplyr::mutate(setting = ifelse(test = sensor == "soniAmrs03" & test_date %in% seq.Date(from = run_3_duration[1], to = run_3_duration[2], by = "1 day"), yes = "01.04.05", no = setting)) %>% 
+  dplyr::mutate(setting = ifelse(test = sensor == "soniAmrs02" & test_date %in% seq.Date(from = run_2_duration_date[1], to = run_2_duration_date[2], by = "1 day"), yes = "01.04.05", no = NA)) %>% 
+  dplyr::mutate(setting = ifelse(test = sensor == "soniAmrs02" & test_date %in% seq.Date(from = run_3_duration_date[1], to = run_3_duration_date[2], by = "1 day"), yes = "01.05.01", no = setting)) %>% 
+  dplyr::mutate(setting = ifelse(test = sensor == "soniAmrs03" & test_date %in% seq.Date(from = run_2_duration_date[1], to = run_2_duration_date[2], by = "1 day"), yes = "01.05.01", no = setting)) %>%
+  dplyr::mutate(setting = ifelse(test = sensor == "soniAmrs03" & test_date %in% seq.Date(from = run_3_duration_date[1], to = run_3_duration_date[2], by = "1 day"), yes = "01.04.05", no = setting)) %>% 
   dplyr::filter(is.na(setting) == FALSE) %>%
   dplyr::filter(is.na(value) == FALSE) %>%
   dplyr::mutate(value = kableExtra::cell_spec(value, "html", color = ifelse(abs(value) <= 0.2, "#00cc00","firebrick"), background = ifelse(setting == "01.04.05", "white","black"), bold = TRUE)) %>% 
@@ -319,10 +310,10 @@ avel_axsDeg.diffMean <- stats.data %>%
   dplyr::filter(stat %in% c("diffMean"))%>%
   dplyr::mutate(value = round(value, 7)) %>%
   dplyr::mutate(test_date = as.Date(test.date, origin = "1970-01-01")) %>% dplyr::select(-test.date) %>% 
-  dplyr::mutate(setting = ifelse(test = sensor == "soniAmrs02" & test_date %in% seq.Date(from = run_2_duration[1], to = run_2_duration[2], by = "1 day"), yes = "01.04.05", no = NA)) %>% 
-  dplyr::mutate(setting = ifelse(test = sensor == "soniAmrs02" & test_date %in% seq.Date(from = run_3_duration[1], to = run_3_duration[2], by = "1 day"), yes = "01.05.01", no = setting)) %>% 
-  dplyr::mutate(setting = ifelse(test = sensor == "soniAmrs03" & test_date %in% seq.Date(from = run_2_duration[1], to = run_2_duration[2], by = "1 day"), yes = "01.05.01", no = setting)) %>%
-  dplyr::mutate(setting = ifelse(test = sensor == "soniAmrs03" & test_date %in% seq.Date(from = run_3_duration[1], to = run_3_duration[2], by = "1 day"), yes = "01.04.05", no = setting)) %>% 
+  dplyr::mutate(setting = ifelse(test = sensor == "soniAmrs02" & test_date %in% seq.Date(from = run_2_duration_date[1], to = run_2_duration_date[2], by = "1 day"), yes = "01.04.05", no = NA)) %>% 
+  dplyr::mutate(setting = ifelse(test = sensor == "soniAmrs02" & test_date %in% seq.Date(from = run_3_duration_date[1], to = run_3_duration_date[2], by = "1 day"), yes = "01.05.01", no = setting)) %>% 
+  dplyr::mutate(setting = ifelse(test = sensor == "soniAmrs03" & test_date %in% seq.Date(from = run_2_duration_date[1], to = run_2_duration_date[2], by = "1 day"), yes = "01.05.01", no = setting)) %>%
+  dplyr::mutate(setting = ifelse(test = sensor == "soniAmrs03" & test_date %in% seq.Date(from = run_3_duration_date[1], to = run_3_duration_date[2], by = "1 day"), yes = "01.04.05", no = setting)) %>% 
   dplyr::filter(is.na(setting) == FALSE) %>%
   dplyr::filter(is.na(value) == FALSE) %>%
   dplyr::mutate(value = kableExtra::cell_spec(value, "html", color = ifelse(abs(value) <= 4.0, "#00cc00","firebrick"), background = ifelse(setting == "low-mag", "white","black"), bold = TRUE)) %>%
@@ -348,10 +339,10 @@ ang_axsDeg.diffMean <- stats.data %>%
   dplyr::filter(stat %in% c("diffMean"))%>%
   dplyr::mutate(value = round(value, 5)) %>%
   dplyr::mutate(test_date = as.Date(test.date, origin = "1970-01-01")) %>% dplyr::select(-test.date) %>% 
-  dplyr::mutate(setting = ifelse(test = sensor == "soniAmrs02" & test_date %in% seq.Date(from = run_2_duration[1], to = run_2_duration[2], by = "1 day"), yes = "01.04.05", no = NA)) %>% 
-  dplyr::mutate(setting = ifelse(test = sensor == "soniAmrs02" & test_date %in% seq.Date(from = run_3_duration[1], to = run_3_duration[2], by = "1 day"), yes = "01.05.01", no = setting)) %>% 
-  dplyr::mutate(setting = ifelse(test = sensor == "soniAmrs03" & test_date %in% seq.Date(from = run_2_duration[1], to = run_2_duration[2], by = "1 day"), yes = "01.05.01", no = setting)) %>%
-  dplyr::mutate(setting = ifelse(test = sensor == "soniAmrs03" & test_date %in% seq.Date(from = run_3_duration[1], to = run_3_duration[2], by = "1 day"), yes = "01.04.05", no = setting)) %>% 
+  dplyr::mutate(setting = ifelse(test = sensor == "soniAmrs02" & test_date %in% seq.Date(from = run_2_duration_date[1], to = run_2_duration_date[2], by = "1 day"), yes = "01.04.05", no = NA)) %>% 
+  dplyr::mutate(setting = ifelse(test = sensor == "soniAmrs02" & test_date %in% seq.Date(from = run_3_duration_date[1], to = run_3_duration_date[2], by = "1 day"), yes = "01.05.01", no = setting)) %>% 
+  dplyr::mutate(setting = ifelse(test = sensor == "soniAmrs03" & test_date %in% seq.Date(from = run_2_duration_date[1], to = run_2_duration_date[2], by = "1 day"), yes = "01.05.01", no = setting)) %>%
+  dplyr::mutate(setting = ifelse(test = sensor == "soniAmrs03" & test_date %in% seq.Date(from = run_3_duration_date[1], to = run_3_duration_date[2], by = "1 day"), yes = "01.04.05", no = setting)) %>% 
   dplyr::filter(is.na(setting) == FALSE) %>%
   dplyr::filter(is.na(value) == FALSE) %>%
   dplyr::mutate(value = kableExtra::cell_spec(value, "html", color = ifelse(abs(value) <= 4.0, "#00cc00","firebrick"), background = ifelse(setting == "low-mag", "white","black"), bold = TRUE)) %>%
@@ -376,10 +367,10 @@ ang_axsDeg.prcs <- stats.data %>%
   dplyr::filter(stat %in% c("prcs"))%>%
   dplyr::mutate(value = round(value, 5)) %>%
   dplyr::mutate(test_date = as.Date(test.date, origin = "1970-01-01")) %>% dplyr::select(-test.date) %>% 
-  dplyr::mutate(setting = ifelse(test = sensor == "soniAmrs02" & test_date %in% seq.Date(from = run_2_duration[1], to = run_2_duration[2], by = "1 day"), yes = "01.04.05", no = NA)) %>% 
-  dplyr::mutate(setting = ifelse(test = sensor == "soniAmrs02" & test_date %in% seq.Date(from = run_3_duration[1], to = run_3_duration[2], by = "1 day"), yes = "01.05.01", no = setting)) %>% 
-  dplyr::mutate(setting = ifelse(test = sensor == "soniAmrs03" & test_date %in% seq.Date(from = run_2_duration[1], to = run_2_duration[2], by = "1 day"), yes = "01.05.01", no = setting)) %>%
-  dplyr::mutate(setting = ifelse(test = sensor == "soniAmrs03" & test_date %in% seq.Date(from = run_3_duration[1], to = run_3_duration[2], by = "1 day"), yes = "01.04.05", no = setting)) %>%
+  dplyr::mutate(setting = ifelse(test = sensor == "soniAmrs02" & test_date %in% seq.Date(from = run_2_duration_date[1], to = run_2_duration_date[2], by = "1 day"), yes = "01.04.05", no = NA)) %>% 
+  dplyr::mutate(setting = ifelse(test = sensor == "soniAmrs02" & test_date %in% seq.Date(from = run_3_duration_date[1], to = run_3_duration_date[2], by = "1 day"), yes = "01.05.01", no = setting)) %>% 
+  dplyr::mutate(setting = ifelse(test = sensor == "soniAmrs03" & test_date %in% seq.Date(from = run_2_duration_date[1], to = run_2_duration_date[2], by = "1 day"), yes = "01.05.01", no = setting)) %>%
+  dplyr::mutate(setting = ifelse(test = sensor == "soniAmrs03" & test_date %in% seq.Date(from = run_3_duration_date[1], to = run_3_duration_date[2], by = "1 day"), yes = "01.04.05", no = setting)) %>% 
   dplyr::filter(is.na(setting) == FALSE) %>%
   dplyr::filter(is.na(value) == FALSE) %>%
   dplyr::mutate(value = kableExtra::cell_spec(value, "html", color = ifelse(abs(value) <= 0.1, "#00cc00","firebrick"), background = ifelse(setting == "low-mag", "white","black"), bold = TRUE)) %>%
@@ -400,10 +391,10 @@ ang_axsDeg.reso <- stats.data %>%
   dplyr::filter(stat %in% c("reso"))%>%
   # dplyr::mutate(value = round(value, 7)) %>%
   dplyr::mutate(test_date = as.Date(test.date, origin = "1970-01-01")) %>% dplyr::select(-test.date) %>% 
-  dplyr::mutate(setting = ifelse(test = sensor == "soniAmrs02" & test_date %in% seq.Date(from = run_2_duration[1], to = run_2_duration[2], by = "1 day"), yes = "01.04.05", no = NA)) %>% 
-  dplyr::mutate(setting = ifelse(test = sensor == "soniAmrs02" & test_date %in% seq.Date(from = run_3_duration[1], to = run_3_duration[2], by = "1 day"), yes = "01.05.01", no = setting)) %>% 
-  dplyr::mutate(setting = ifelse(test = sensor == "soniAmrs03" & test_date %in% seq.Date(from = run_2_duration[1], to = run_2_duration[2], by = "1 day"), yes = "01.05.01", no = setting)) %>%
-  dplyr::mutate(setting = ifelse(test = sensor == "soniAmrs03" & test_date %in% seq.Date(from = run_3_duration[1], to = run_3_duration[2], by = "1 day"), yes = "01.04.05", no = setting)) %>%
+  dplyr::mutate(setting = ifelse(test = sensor == "soniAmrs02" & test_date %in% seq.Date(from = run_2_duration_date[1], to = run_2_duration_date[2], by = "1 day"), yes = "01.04.05", no = NA)) %>% 
+  dplyr::mutate(setting = ifelse(test = sensor == "soniAmrs02" & test_date %in% seq.Date(from = run_3_duration_date[1], to = run_3_duration_date[2], by = "1 day"), yes = "01.05.01", no = setting)) %>% 
+  dplyr::mutate(setting = ifelse(test = sensor == "soniAmrs03" & test_date %in% seq.Date(from = run_2_duration_date[1], to = run_2_duration_date[2], by = "1 day"), yes = "01.05.01", no = setting)) %>%
+  dplyr::mutate(setting = ifelse(test = sensor == "soniAmrs03" & test_date %in% seq.Date(from = run_3_duration_date[1], to = run_3_duration_date[2], by = "1 day"), yes = "01.04.05", no = setting)) %>% 
   dplyr::filter(is.na(setting) == FALSE) %>%
   dplyr::filter(is.na(value) == FALSE) %>%
   dplyr::mutate(value = kableExtra::cell_spec(value, "html", color = ifelse(abs(value) <= 0.05, "#00cc00","firebrick"), background = ifelse(setting == "low-mag", "white","black"), bold = TRUE)) %>%
@@ -423,10 +414,10 @@ ang_axsDeg.diffMean <- stats.data %>%
   dplyr::filter(stat %in% c("diffMean"))%>%
   dplyr::mutate(value = round(value, 5)) %>%
   dplyr::mutate(test_date = as.Date(test.date, origin = "1970-01-01")) %>% dplyr::select(-test.date) %>% 
-  dplyr::mutate(setting = ifelse(test = sensor == "soniAmrs02" & test_date %in% seq.Date(from = run_2_duration[1], to = run_2_duration[2], by = "1 day"), yes = "01.04.05", no = NA)) %>% 
-  dplyr::mutate(setting = ifelse(test = sensor == "soniAmrs02" & test_date %in% seq.Date(from = run_3_duration[1], to = run_3_duration[2], by = "1 day"), yes = "01.05.01", no = setting)) %>% 
-  dplyr::mutate(setting = ifelse(test = sensor == "soniAmrs03" & test_date %in% seq.Date(from = run_2_duration[1], to = run_2_duration[2], by = "1 day"), yes = "01.05.01", no = setting)) %>%
-  dplyr::mutate(setting = ifelse(test = sensor == "soniAmrs03" & test_date %in% seq.Date(from = run_3_duration[1], to = run_3_duration[2], by = "1 day"), yes = "01.04.05", no = setting)) %>%
+  dplyr::mutate(setting = ifelse(test = sensor == "soniAmrs02" & test_date %in% seq.Date(from = run_2_duration_date[1], to = run_2_duration_date[2], by = "1 day"), yes = "01.04.05", no = NA)) %>% 
+  dplyr::mutate(setting = ifelse(test = sensor == "soniAmrs02" & test_date %in% seq.Date(from = run_3_duration_date[1], to = run_3_duration_date[2], by = "1 day"), yes = "01.05.01", no = setting)) %>% 
+  dplyr::mutate(setting = ifelse(test = sensor == "soniAmrs03" & test_date %in% seq.Date(from = run_2_duration_date[1], to = run_2_duration_date[2], by = "1 day"), yes = "01.05.01", no = setting)) %>%
+  dplyr::mutate(setting = ifelse(test = sensor == "soniAmrs03" & test_date %in% seq.Date(from = run_3_duration_date[1], to = run_3_duration_date[2], by = "1 day"), yes = "01.04.05", no = setting)) %>% 
   dplyr::filter(is.na(setting) == FALSE) %>%
   dplyr::filter(is.na(value) == FALSE) %>%
   dplyr::mutate(value = kableExtra::cell_spec(value, "html", color = ifelse(abs(value) <= 1.0, "#00cc00","firebrick"), background = ifelse(setting == "low-mag", "white","black"), bold = TRUE)) %>%
@@ -443,7 +434,6 @@ DT::datatable(ang_axsDeg.diffMean, escape = FALSE, options = list(dom = 't'))
 #Ploting 1:1 comparison each soniAmrs
 require(stats)
 # Westerly wind will give us better data
-dirOut <- "N:/Science/FIUData/kstyers/amrs.cmpr/"
 soniAmrs01_data <- soniAmrs_plot_data %>%
   dplyr::filter(sensor == "soniAmrs01")
 soniAmrs02_data <- soniAmrs_plot_data %>%
@@ -454,20 +444,31 @@ test.melt <- soniAmrs_plot_data %>%
   reshape2::melt(id.vars = c("timeBgn", "sensor","run", "firmware_version")) %>%
   tidyr::unite(col = "measurement", c("sensor","variable","firmware_version")) %>%
   reshape2::dcast(timeBgn + run ~ measurement, value.var = "value", fun.aggregate = mean)
-p1 <- ggplot(data = test.melt, aes(x = soniAmrs01_accXaxs_01.04.01, y = soniAmrs02_accXaxs_01.04.01)) +
+
+p1 <- ggplot(data = test.melt %>% dplyr::filter(run == 1) %>% dplyr::filter(soniAmrs01_accXaxs_01.04.01 > -1000 & soniAmrs02_accXaxs_01.04.01 > -1000), 
+             aes(x = soniAmrs01_accXaxs_01.04.01, y = soniAmrs02_accXaxs_01.04.01)) +
   geom_point() + 
   geom_smooth(method = "lm", color = "red") +
-  labs(title = "soniAmrs 1 and 2", subtitle = "\taccXaxs", x = "soniAmrs01 accXaxsgeneral", y = "soniAmrs02 accXaxs low-mag")  +
+  labs(title = "soniAmrs 1 and 2", subtitle = "\taccXaxs", x = "soniAmrs01\naccXaxs 01.04.01", y = "soniAmrs02\naccXaxs 01.04.01")  +
   facet_wrap(~run)
-p2 <- ggplot(data = test.melt, aes(x = soniAmrs01_accXaxs_general, y = `soniAmrs03_accXaxs_low-mag`)) +
+
+p2 <- ggplot(data = test.melt %>% dplyr::filter(run == 1) %>% dplyr::filter(soniAmrs01_accXaxs_01.04.01 > -1000 & soniAmrs03_accXaxs_01.04.01 > -1000), 
+             aes(x = soniAmrs01_accXaxs_01.04.01, y = soniAmrs03_accXaxs_01.04.01)) +
   geom_point() + 
   geom_smooth(method = "lm", color = "red") +
-  labs(title = "soniAmrs 1 and 3", subtitle = "\taccXaxs", x = "soniAmrs01 accXaxs general", y = "soniAmrs03 accXaxs low-mag") 
-p3 <- ggplot(data = test.melt, aes(x = soniAmrs02_accXaxs_general, y = `soniAmrs03_accXaxs_low-mag`)) +
+  labs(title = "soniAmrs 1 and 3", subtitle = "\taccXaxs", x = "soniAmrs01\naccXaxs 01.04.01", y = "soniAmrs03\naccXaxs 01.04.01") +
+  facet_wrap(~run)
+
+p3 <- ggplot(data = test.melt %>% dplyr::filter(run == 1) %>% dplyr::filter(soniAmrs02_accXaxs_01.04.01 > -1000 & soniAmrs03_accXaxs_01.04.01 > -1000),
+             aes(x = soniAmrs02_accXaxs_01.04.01, y = soniAmrs03_accXaxs_01.04.01)) +
   geom_point() + 
   geom_smooth(method = "lm", color = "red") +
-  labs(title = "soniAmrs 2 and 3", subtitle = "\taccXaxs", x = "soniAmrs02 accXaxs general", y = "soniAmrs03 accXaxs low-mag") 
+  labs(title = "soniAmrs 2 and 3", subtitle = "\taccXaxs", x = "soniAmrs02\naccXaxs 01.04.01", y = "soniAmrs03\naccXaxs 01.04.01") +
+  facet_wrap(~run)
+
 gridExtra::grid.arrange(p1, p2, p3, nrow = 1)
+
+
 data.plot <- data.table()
 data.plot$soniAmrs01_mean_avg60.accXaxs = soniAmrs01_data$accXaxs
 data.plot$soniAmrs02_mean_avg60.accXaxs = soniAmrs02_data$accXaxs
