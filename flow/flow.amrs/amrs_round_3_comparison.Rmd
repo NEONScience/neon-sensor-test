@@ -61,13 +61,23 @@ soniAmrs03_data <- bigData$avg60 %>%
 # Calculate start end for each run
 run_1_duration_dt = soniAmrs01_data %>% 
   dplyr::filter(run == 1) 
-run_1_duration = c(min(run_1_duration_dt$timeBgn), max(run_1_duration_dt$timeBgn))
+run_1_duration = c(lubridate::ymd_hms(min(run_1_duration_dt$timeBgn)), lubridate::ymd_hms(max(run_1_duration_dt$timeBgn)))
 run_2_duration_dt = soniAmrs01_data %>% 
   dplyr::filter(run == 2) 
-run_2_duration = c(min(run_2_duration_dt$timeBgn), max(run_2_duration_dt$timeBgn))
+run_2_duration = c(lubridate::ymd_hms(min(run_2_duration_dt$timeBgn)) , lubridate::ymd_hms(max(run_2_duration_dt$timeBgn)))
 run_3_duration_dt = soniAmrs01_data %>% 
   dplyr::filter(run == 3) 
-run_3_duration = c(min(run_3_duration_dt$timeBgn), max(run_3_duration_dt$timeBgn))
+run_3_duration = c(lubridate::ymd_hms(min(run_3_duration_dt$timeBgn)) , lubridate::ymd_hms(max(run_3_duration_dt$timeBgn)-1))
+
+# run_3_duration_dt %>% 
+#   dplyr::mutate(date = as.Date(timeBgn, origin = "1970-01-01")) %>% 
+#   dplyr::group_by(date) %>% 
+#   dplyr::summarise(
+#     is_na_ang = sum(is.na(angXaxsDeg))/length(angXaxsDeg),
+#     is_na_acc = sum(is.na(accXaxs))/length(accXaxs)
+#   )
+
+
 
 soniAmrs_plot_data <- data.table::rbindlist(l = list(soniAmrs01_data, soniAmrs02_data, soniAmrs03_data))
 ```
@@ -82,78 +92,23 @@ An intercomparison analysis was performed to access the potential differences be
 We expected the largest difference to present itself on the Azimuth angle measurement and the plot below demonstates the performance of each setting with regards to this measurement with the general filter setting having the least amount of noise across all three sensors.  
 
 ```{r, layout = "l-page", echo = FALSE}
-# The first set goes from  03/23/2020 07:00:00 to 04/01/2020 11:59:59
-experiment1.start <- as.POSIXct("2020-03-23", format = "%Y-%m-%d", origin = "1970-01-01")
-experiment1.end   <- as.POSIXct("2020-04-02", format = "%Y-%m-%d", origin = "1970-01-01")
-# The second set is from   04/02/2020 00:00:00 to 04/11/2020 11:59:59
-experiment2.start <- as.POSIXct("2020-04-02", format = "%Y-%m-%d", origin = "1970-01-01")
-experiment2.end   <- as.POSIXct("2020-04-12", format = "%Y-%m-%d", origin = "1970-01-01")
-ang.plot <- data.table::data.table()
-ang.plot$time   <- as.POSIXct(bigData$soniAmrs01_mean_avg60$timeBgn, format="%Y-%m-%d %H:%M:%OS")
-ang.plot$amrs01.angX <- as.numeric(bigData$soniAmrs01_mean_avg60$angXaxsDeg)
-ang.plot$amrs02.angX <- as.numeric(bigData$soniAmrs02_mean_avg60$angXaxsDeg)
-ang.plot$amrs03.angX <- as.numeric(bigData$soniAmrs03_mean_avg60$angXaxsDeg)
-ang.plot$amrs01.angY <- as.numeric(bigData$soniAmrs01_mean_avg60$angYaxsDeg)
-ang.plot$amrs02.angY <- as.numeric(bigData$soniAmrs02_mean_avg60$angYaxsDeg)
-ang.plot$amrs03.angY <- as.numeric(bigData$soniAmrs03_mean_avg60$angYaxsDeg)
-ang.plot$amrs01.angZ <- as.numeric(bigData$soniAmrs01_mean_avg60$angZaxsDeg)
-ang.plot$amrs02.angZ <- as.numeric(bigData$soniAmrs02_mean_avg60$angZaxsDeg)
-ang.plot$amrs03.angZ <- as.numeric(bigData$soniAmrs03_mean_avg60$angZaxsDeg)
-ang.plot.nona <- ang.plot %>%
-  na.omit()
-ang.reshape <- ang.plot.nona %>%
-  reshape2::melt(id.var = "time") %>%
-  dplyr::group_by(variable) %>%
-  tidyr::separate(variable, into = c("sensor","stream"))
-p1.ang.z <- ggplot(ang.reshape %>% dplyr::filter(stream == "angZ") %>% dplyr::filter(sensor == "amrs01")) +
-  annotate("rect", xmin = experiment1.start, xmax = experiment2.end, ymin = 330, ymax = 347, alpha = 0.75, fill = "black")+
-  geom_point(alpha = .5, aes(x = time, y = value), color = "violet", shape = 1) +
-  geom_hline(yintercept = 337.47, linetype = "dashed") +
-  scale_x_datetime(date_breaks = "2 days", date_labels = "%b-%d") +
-  scale_y_continuous(breaks = scales::pretty_breaks(n = 6))+
-  theme(axis.text.x = element_text(angle = 270), legend.position = "none") +
-  labs(title = "", y = "Degrees", x = "") +
-  ylim(330, 347) # +
-  # facet_wrap(~sensor, scales = "free_y")
-p2.ang.z <- ggplot(ang.reshape %>% dplyr::filter(stream == "angZ") %>% dplyr::filter(sensor == "amrs02")) +
-  annotate("rect", xmin = experiment1.start, xmax = experiment1.end, ymin = 330, ymax = 347, alpha = 0.75, fill = "black")+
-  annotate("rect", xmin = experiment2.start, xmax = experiment2.end, ymin = 330, ymax = 347, alpha = 0.75, fill = "white")+
-  geom_point(alpha = .5, aes(x = time, y = value), color = "firebrick", shape = 1) +
-  geom_hline(yintercept = 337.47, linetype = "dashed") +
-  scale_x_datetime(date_breaks = "2 days", date_labels = "%b-%d") +
-  scale_y_continuous(breaks = scales::pretty_breaks(n = 6))+
-  theme(axis.text.x = element_text(angle = 270), legend.position = "none") +
-  ylim(330, 347) +
-  labs(title = "", y = "", x = "") #+
-  # facet_wrap(~sensor, scales = "free_y")
-p3.ang.z <- ggplot(ang.reshape %>% dplyr::filter(stream == "angZ") %>% dplyr::filter(sensor == "amrs03")) +
-  annotate("rect", xmin = experiment1.start, xmax = experiment1.end, ymin = 330, ymax = 347, alpha = 0.75, fill = "white")+
-  annotate("rect", xmin = experiment2.start, xmax = experiment2.end, ymin = 330, ymax = 347, alpha = 0.75, fill = "black")+
-  geom_point(alpha = .5, aes(x = time, y = value), color = "blue", shape = 1) +
-  geom_hline(yintercept = 337.47, linetype = "dashed") +
-  scale_x_datetime(date_breaks = "2 days", date_labels = "%b-%d") +
-  scale_y_continuous(breaks = scales::pretty_breaks(n = 6))+
-  theme(axis.text.x = element_text(angle = 270), legend.position = "none") +
-  ylim(330, 347) + 
-  labs(title = "", y = "", x = "") #+
-  # facet_wrap(~sensor, scales = "free_y")
-p1.ang.z + ggplot2::labs(title = "AMRS 1 (control) - Azimuth measurement", subtitle = "Black shadding = general filter applied\nWhite shading = low-mag filter applied")
-p2.ang.z + ggplot2::labs(title = "AMRS 2 (test) - Azimuth measurement", subtitle = "Black shadding = general filter applied\nWhite shading = low-mag filter applied")
-p3.ang.z + ggplot2::labs(title = "AMRS 2 (test) - Azimuth measurement", subtitle = "Black shadding = general filter applied\nWhite shading = low-mag filter applied")
-# gridExtra::grid.arrange(p1.ang.z, p2.ang.z, p3.ang.z, nrow = 1,
-#                         top = grid::textGrob("Averaged  (1-min) Ang Z measurements",gp=gpar(fontsize=20,font=3)), 
-#                         bottom = grid::textGrob("Black shadding indicates general filter applied, \n\t\twhite shading indicates low-mag filter applied",gp=gpar(fontsize=12,font=3))
-#                           )
-p3.ang <- ggplot(ang.reshape %>% dplyr::filter(stream == "angZ")) +
-  annotate("rect", xmin = experiment1.start, xmax = experiment1.end, ymin = 330, ymax = 347, alpha = 0.65, fill = "white")+
-  annotate("rect", xmin = experiment2.start, xmax = experiment2.end, ymin = 330, ymax = 347, alpha = 0.65, fill = "black")+
-  geom_point(alpha = .5, aes(x = time, y = value, color = sensor)) +
+ang.plot = bigData$avg60 %>% 
+  dplyr::select(timeBgn, sensor, run, angXaxsDeg, angYaxsDeg, angZaxsDeg) %>% 
+  reshape2::melt(id.vars = c("timeBgn", "sensor", "run"))
+
+p3.ang_min = 87.25
+p3.ang_max = 88.25
+
+p3.ang <-=ggplot(ang.plot %>% dplyr::filter(variable == "angZaxsDeg")) +
+  annotate("rect", xmin = run_1_duration[1], xmax = run_1_duration[2], ymin = p3.ang_min, ymax = p3.ang_max, alpha = 0.65, fill = "green")+
+  annotate("rect", xmin = run_2_duration[1], xmax = run_2_duration[2], ymin = p3.ang_min, ymax = p3.ang_max, alpha = 0.65, fill = "grey")+
+  annotate("rect", xmin = run_3_duration[1], xmax = run_3_duration[2], ymin = p3.ang_min, ymax = p3.ang_max, alpha = 0.65, fill = "black")+
+  geom_point(alpha = .5, aes(x = timeBgn, y = value, color = sensor)) +
   scale_color_manual(values = c("violet", "firebrick", "blue")) +
-  geom_hline(yintercept = 337.47, linetype = "dashed") +
   scale_x_datetime(date_breaks = "2 days", date_labels = "%b-%d") +
   scale_y_continuous(breaks = scales::pretty_breaks(n = 6))+
   theme(axis.text.x = element_text(angle = 270), legend.position = "top") +
-  ylim(330, 347) + 
+  ylim(p3.ang_min, p3.ang_max) +
   labs(title = "", y = "", x = "", color ="")
 p3.ang
 ```
@@ -197,16 +152,16 @@ wind.speed.data <- bigData$soni_mean_avg1800
 wind.speed.data$time <- base::as.POSIXct(wind.speed.data$timeBgn, format="%Y-%m-%d %H:%M:%OS", tz="UTC")
 plot.wind.speed <- ggplot(data = wind.speed.data, aes(x = time, y = veloXaxsYaxsErth))+
   # geom_point(size = , alpha = .5) + 
-  annotate("rect", xmin = experiment1.start, xmax = experiment1.end, ymin = 0, ymax = 5, alpha = 0.2, fill = "#00cc00")+
-  annotate("rect", xmin = experiment2.start, xmax = experiment2.end, ymin = 0, ymax = 5, alpha = 0.2, fill = "yellow")+
+  annotate("rect", xmin = run_1_duration[1], xmax = run_1_duration[2], ymin = 0, ymax = 5, alpha = 0.2, fill = "#00cc00")+
+  annotate("rect", xmin = run_2_duration[1], xmax = run_2_duration[2], ymin = 0, ymax = 5, alpha = 0.2, fill = "yellow")+
   geom_point(shape = 1) +
   scale_x_datetime(date_breaks = "1 day") +
   theme(axis.text.x = element_text(angle = 270)) +
   labs(x = "", y = "Wind Speed (m/s)", title = "NEON HQ Tower CSAT3 Wind Speed During AMRS Round 2 Intercomparison") 
 plot.wind.dir <- ggplot(data = wind.speed.data, aes(x = time, y = windDir))+
   # geom_point(size = .5, alpha = .5) +
-  annotate("rect", xmin = experiment1.start, xmax = experiment1.end, ymin = 0, ymax = 360, alpha = 0.2, fill = "#00cc00")+
-  annotate("rect", xmin = experiment2.start, xmax = experiment2.end, ymin = 0, ymax = 360, alpha = 0.2, fill = "yellow")+
+  annotate("rect", xmin = run_1_duration[1], xmax = run_1_duration[2], ymin = 0, ymax = 360, alpha = 0.2, fill = "#00cc00")+
+  annotate("rect", xmin = run_2_duration[1], xmax = run_2_duration[2], ymin = 0, ymax = 360, alpha = 0.2, fill = "yellow")+
   geom_point(shape = 1) +
   scale_x_datetime(date_breaks = "1 day") +
   theme(axis.text.x = element_text(angle = 270)) +
@@ -257,19 +212,15 @@ acc_axsDiffFilt.prcs <- stats.data %>%
   dplyr::filter(stat %in% c("prcs"))%>%
   dplyr::mutate(test_date = as.Date(test.date, origin = "1970-01-01")) %>% dplyr::select(-test.date) %>% 
   dplyr::mutate(value = round(value, 6)) %>%
-  # dplyr::mutate(setting = ifelse(test = sensor == "soniAmrs02" & test_date %in% seq.Date(from = as.Date(run_1_duration[1], origin = "1970-01-01"), to = as.Date(run_1_duration[2], origin = "1970-01-01"), by = "1 day"), yes = "01.04.01", no = NA)) %>% 
-  dplyr::mutate(setting = ifelse(test = sensor == "soniAmrs02" & test_date %in% seq.Date(from = as.Date(run_2_duration[1], origin = "1970-01-01"), to = as.Date(run_2_duration[2], origin = "1970-01-01"), by = "1 day"), yes = "01.04.05", no = NA)) %>% 
-  dplyr::mutate(setting = ifelse(test = sensor == "soniAmrs02" & test_date %in% seq.Date(from = as.Date(run_3_duration[1], origin = "1970-01-01"), to = as.Date(run_3_duration[2], origin = "1970-01-01"), by = "1 day"), yes = "01.05.01", no = setting)) %>% 
-  # dplyr::mutate(setting = ifelse(test = sensor == "soniAmrs03" & test_date %in% seq.Date(from = as.Date(run_1_duration[1], origin = "1970-01-01"), to = as.Date(run_1_duration[2], origin = "1970-01-01"), by = "1 day"), yes = "01.04.01", no = setting)) %>%
-  dplyr::mutate(setting = ifelse(test = sensor == "soniAmrs03" & test_date %in% seq.Date(from = as.Date(run_2_duration[1], origin = "1970-01-01"), to = as.Date(run_2_duration[2], origin = "1970-01-01"), by = "1 day"), yes = "01.05.01", no = setting)) %>%
-  dplyr::mutate(setting = ifelse(test = sensor == "soniAmrs03" & test_date %in% seq.Date(from = as.Date(run_3_duration[1], origin = "1970-01-01"), to = as.Date(run_3_duration[2], origin = "1970-01-01"), by = "1 day"), yes = "01.04.05", no = setting)) %>% 
-  # dplyr::filter(is.na(setting) == FALSE) %>% 
-  # dplyr::filter(is.na(value) == FALSE) %>% 
-  # dplyr::mutate(value = kableExtra::cell_spec(value, "html", color = ifelse(abs(value) <= 0.05, "#00cc00","firebrick"), background = ifelse(setting == "01.04.05", "white","black"), bold = TRUE)) %>%
+  dplyr::mutate(setting = ifelse(test = sensor == "soniAmrs02" & test_date %in% seq.Date(from = run_2_duration[1], to = run_2_duration[2], by = "1 day"), yes = "01.04.05", no = NA)) %>% 
+  dplyr::mutate(setting = ifelse(test = sensor == "soniAmrs02" & test_date %in% seq.Date(from = run_3_duration[1], to = run_3_duration[2], by = "1 day"), yes = "01.05.01", no = setting)) %>% 
+  dplyr::mutate(setting = ifelse(test = sensor == "soniAmrs03" & test_date %in% seq.Date(from = run_2_duration[1], to = run_2_duration[2], by = "1 day"), yes = "01.05.01", no = setting)) %>%
+  dplyr::mutate(setting = ifelse(test = sensor == "soniAmrs03" & test_date %in% seq.Date(from = run_3_duration[1], to = run_3_duration[2], by = "1 day"), yes = "01.04.05", no = setting)) %>% 
+  dplyr::filter(is.na(setting) == FALSE) %>%
+  dplyr::filter(is.na(value) == FALSE) %>%
+  dplyr::mutate(value = kableExtra::cell_spec(value, "html", color = ifelse(abs(value) <= 0.05, "#00cc00","firebrick"), background = ifelse(setting == "01.04.05", "white","black"), bold = TRUE)) %>% 
+  dplyr::filter(test_date >= run_3_duration[1]) %>% 
   reshape2::dcast(sensor + measurement + stat ~ test_date)  
-
-
-max(acc_axsDiffFilt.prcs$test_date)
 
 DT::datatable(acc_axsDiffFilt.prcs, escape = FALSE, options = list(dom = 't')) %>% 
   DT::formatStyle(columns = c("sensor", "measurement", "stat"), backgroundColor = 'gray') 
@@ -282,15 +233,24 @@ To ensure the detectability of < 5 W m-2 advective divergence in the eddy-covari
 Both settings <span style="color:#00cc00"><b>PASSED</b></span>  
 
 ```{r, layout = "l-screen"}
+
+options(scipens = 999)
+
 acc_axsDiffFilt.diffMean <- stats.data %>%
   dplyr::filter(stringr::str_detect(string = measurement, pattern = "axsDiffFilt") == TRUE) %>%
   dplyr::filter(stat %in% c("diffMean"))%>%
   dplyr::mutate(value = round(value, 7)) %>%
-  dplyr::mutate(setting = ifelse(test = sensor == "soniAmrs02" & test.date %in% c("2020-03-25", "2020-03-26", "2020-03-27","2020-03-30", "2020-03-31"), yes = "general", no = 
-                        ifelse(test = sensor == "soniAmrs02" & test.date %in% c("2020-04-01", "2020-04-02", "2020-04-03", "2020-04-04", "2020-04-05", "2020-04-06", "2020-04-07", "2020-04-08", "2020-04-09" , "2020-04-10", "2020-04-11"), yes = "low-mag", no = 
-                        ifelse(test = sensor == "soniAmrs03" & test.date %in% c("2020-03-25", "2020-03-26", "2020-03-27","2020-03-30", "2020-03-31"), yes = "low-mag", no = "general")))) %>%
-  dplyr::mutate(value = kableExtra::cell_spec(value, "html", color = ifelse(abs(value) <= 0.1, "#00cc00","firebrick"), background = ifelse(setting == "low-mag", "white","black"), bold = TRUE)) %>%
-  reshape2::dcast(sensor + measurement + stat ~ test.date)  
+  dplyr::mutate(test_date = as.Date(test.date, origin = "1970-01-01")) %>% dplyr::select(-test.date) %>% 
+  dplyr::mutate(setting = ifelse(test = sensor == "soniAmrs02" & test_date %in% seq.Date(from = run_2_duration[1], to = run_2_duration[2], by = "1 day"), yes = "01.04.05", no = NA)) %>% 
+  dplyr::mutate(setting = ifelse(test = sensor == "soniAmrs02" & test_date %in% seq.Date(from = run_3_duration[1], to = run_3_duration[2], by = "1 day"), yes = "01.05.01", no = setting)) %>% 
+  dplyr::mutate(setting = ifelse(test = sensor == "soniAmrs03" & test_date %in% seq.Date(from = run_2_duration[1], to = run_2_duration[2], by = "1 day"), yes = "01.05.01", no = setting)) %>%
+  dplyr::mutate(setting = ifelse(test = sensor == "soniAmrs03" & test_date %in% seq.Date(from = run_3_duration[1], to = run_3_duration[2], by = "1 day"), yes = "01.04.05", no = setting)) %>% 
+  dplyr::filter(is.na(setting) == FALSE) %>%
+  dplyr::filter(is.na(value) == FALSE) %>%
+  dplyr::mutate(value = kableExtra::cell_spec(value, "html", color = ifelse(abs(value) <= 0.1, "#00cc00","firebrick"), background = ifelse(setting == "01.04.05", "white","black"), bold = TRUE)) %>% 
+  dplyr::filter(test_date >= run_3_duration[1]) %>% 
+  reshape2::dcast(sensor + measurement + stat ~ test_date)  
+
 DT::datatable(acc_axsDiffFilt.diffMean, escape = FALSE, options = list(dom = 't')) %>% 
   DT::formatStyle(columns = c("sensor", "measurement", "stat"), backgroundColor = 'gray')
 ```
@@ -309,11 +269,16 @@ avel_axsDeg.prcs <- stats.data %>%
   dplyr::filter(stringr::str_detect(string = measurement, pattern = "avel") == TRUE) %>%
   dplyr::filter(stat %in% c("prcs"))%>%
   dplyr::mutate(value = round(value, 7)) %>%
-  dplyr::mutate(setting = ifelse(test = sensor == "soniAmrs02" & test.date %in% c("2020-03-25", "2020-03-26", "2020-03-27","2020-03-30", "2020-03-31"), yes = "general", no = 
-                      ifelse(test = sensor == "soniAmrs02" & test.date %in% c("2020-04-01", "2020-04-02", "2020-04-03", "2020-04-04", "2020-04-05", "2020-04-06", "2020-04-07", "2020-04-08", "2020-04-09" , "2020-04-10", "2020-04-11"), yes = "low-mag", no = 
-                      ifelse(test = sensor == "soniAmrs03" & test.date %in% c("2020-03-25", "2020-03-26", "2020-03-27","2020-03-30", "2020-03-31"), yes = "low-mag", no = "general")))) %>%
-  dplyr::mutate(value = kableExtra::cell_spec(value, "html", color = ifelse(abs(value) <= 2.0, "#00cc00","firebrick"), background = ifelse(setting == "low-mag", "white","black"), bold = TRUE)) %>%
-  reshape2::dcast(sensor + measurement + stat ~ test.date)  
+  dplyr::mutate(test_date = as.Date(test.date, origin = "1970-01-01")) %>% dplyr::select(-test.date) %>% 
+  dplyr::mutate(setting = ifelse(test = sensor == "soniAmrs02" & test_date %in% seq.Date(from = run_2_duration[1], to = run_2_duration[2], by = "1 day"), yes = "01.04.05", no = NA)) %>% 
+  dplyr::mutate(setting = ifelse(test = sensor == "soniAmrs02" & test_date %in% seq.Date(from = run_3_duration[1], to = run_3_duration[2], by = "1 day"), yes = "01.05.01", no = setting)) %>% 
+  dplyr::mutate(setting = ifelse(test = sensor == "soniAmrs03" & test_date %in% seq.Date(from = run_2_duration[1], to = run_2_duration[2], by = "1 day"), yes = "01.05.01", no = setting)) %>%
+  dplyr::mutate(setting = ifelse(test = sensor == "soniAmrs03" & test_date %in% seq.Date(from = run_3_duration[1], to = run_3_duration[2], by = "1 day"), yes = "01.04.05", no = setting)) %>% 
+  dplyr::filter(is.na(setting) == FALSE) %>%
+  dplyr::filter(is.na(value) == FALSE) %>%
+  dplyr::mutate(value = kableExtra::cell_spec(value, "html", color = ifelse(abs(value) <= 2.0, "#00cc00","firebrick"), background = ifelse(setting == "01.04.05", "white","black"), bold = TRUE)) %>% 
+  dplyr::filter(test_date >= run_3_duration[1]) %>% 
+  reshape2::dcast(sensor + measurement + stat ~ test_date)  
 DT::datatable(avel_axsDeg.prcs, escape = FALSE, options = list(dom = 't')) 
 ```
 
@@ -326,13 +291,18 @@ Both settings <span style="color:#00cc00"><b>PASSED</b></span>
 ```{r, layout = "l-screen"}
 avel_axsDeg.reso <- stats.data %>%
   dplyr::filter(stringr::str_detect(string = measurement, pattern = "avel") == TRUE) %>%
-  dplyr::filter(stat %in% c("reso"))%>%
+  dplyr::filter(stat %in% c("reso")) %>%
   dplyr::mutate(value = round(value, 7)) %>%
-  dplyr::mutate(setting = ifelse(test = sensor == "soniAmrs02" & test.date %in% c("2020-03-25", "2020-03-26", "2020-03-27","2020-03-30", "2020-03-31"), yes = "general", no = 
-                      ifelse(test = sensor == "soniAmrs02" & test.date %in% c("2020-04-01", "2020-04-02", "2020-04-03", "2020-04-04", "2020-04-05", "2020-04-06", "2020-04-07", "2020-04-08", "2020-04-09" , "2020-04-10", "2020-04-11"), yes = "low-mag", no = 
-                      ifelse(test = sensor == "soniAmrs03" & test.date %in% c("2020-03-25", "2020-03-26", "2020-03-27","2020-03-30", "2020-03-31"), yes = "low-mag", no = "general")))) %>%
-  dplyr::mutate(value = kableExtra::cell_spec(value, "html", color = ifelse(abs(value) <= 0.2, "#00cc00","firebrick"), background = ifelse(setting == "low-mag", "white","black"), bold = TRUE)) %>%
-  reshape2::dcast(sensor + measurement + stat ~ test.date)
+  dplyr::mutate(test_date = as.Date(test.date, origin = "1970-01-01")) %>% dplyr::select(-test.date) %>% 
+  dplyr::mutate(setting = ifelse(test = sensor == "soniAmrs02" & test_date %in% seq.Date(from = run_2_duration[1], to = run_2_duration[2], by = "1 day"), yes = "01.04.05", no = NA)) %>% 
+  dplyr::mutate(setting = ifelse(test = sensor == "soniAmrs02" & test_date %in% seq.Date(from = run_3_duration[1], to = run_3_duration[2], by = "1 day"), yes = "01.05.01", no = setting)) %>% 
+  dplyr::mutate(setting = ifelse(test = sensor == "soniAmrs03" & test_date %in% seq.Date(from = run_2_duration[1], to = run_2_duration[2], by = "1 day"), yes = "01.05.01", no = setting)) %>%
+  dplyr::mutate(setting = ifelse(test = sensor == "soniAmrs03" & test_date %in% seq.Date(from = run_3_duration[1], to = run_3_duration[2], by = "1 day"), yes = "01.04.05", no = setting)) %>% 
+  dplyr::filter(is.na(setting) == FALSE) %>%
+  dplyr::filter(is.na(value) == FALSE) %>%
+  dplyr::mutate(value = kableExtra::cell_spec(value, "html", color = ifelse(abs(value) <= 0.2, "#00cc00","firebrick"), background = ifelse(setting == "01.04.05", "white","black"), bold = TRUE)) %>% 
+  dplyr::filter(test_date >= run_3_duration[1]) %>% 
+  reshape2::dcast(sensor + measurement + stat ~ test_date)
 DT::datatable(avel_axsDeg.reso, escape = FALSE, options = list(dom = 't'))
 ```
 
@@ -348,11 +318,16 @@ avel_axsDeg.diffMean <- stats.data %>%
   dplyr::filter(stringr::str_detect(string = measurement, pattern = "avel") == TRUE) %>%
   dplyr::filter(stat %in% c("diffMean"))%>%
   dplyr::mutate(value = round(value, 7)) %>%
-  dplyr::mutate(setting = ifelse(test = sensor == "soniAmrs02" & test.date %in% c("2020-03-25", "2020-03-26", "2020-03-27","2020-03-30", "2020-03-31"), yes = "general", no = 
-                      ifelse(test = sensor == "soniAmrs02" & test.date %in% c("2020-04-01", "2020-04-02", "2020-04-03", "2020-04-04", "2020-04-05", "2020-04-06", "2020-04-07", "2020-04-08", "2020-04-09" , "2020-04-10", "2020-04-11"), yes = "low-mag", no = 
-                      ifelse(test = sensor == "soniAmrs03" & test.date %in% c("2020-03-25", "2020-03-26", "2020-03-27","2020-03-30", "2020-03-31"), yes = "low-mag", no = "general")))) %>%
+  dplyr::mutate(test_date = as.Date(test.date, origin = "1970-01-01")) %>% dplyr::select(-test.date) %>% 
+  dplyr::mutate(setting = ifelse(test = sensor == "soniAmrs02" & test_date %in% seq.Date(from = run_2_duration[1], to = run_2_duration[2], by = "1 day"), yes = "01.04.05", no = NA)) %>% 
+  dplyr::mutate(setting = ifelse(test = sensor == "soniAmrs02" & test_date %in% seq.Date(from = run_3_duration[1], to = run_3_duration[2], by = "1 day"), yes = "01.05.01", no = setting)) %>% 
+  dplyr::mutate(setting = ifelse(test = sensor == "soniAmrs03" & test_date %in% seq.Date(from = run_2_duration[1], to = run_2_duration[2], by = "1 day"), yes = "01.05.01", no = setting)) %>%
+  dplyr::mutate(setting = ifelse(test = sensor == "soniAmrs03" & test_date %in% seq.Date(from = run_3_duration[1], to = run_3_duration[2], by = "1 day"), yes = "01.04.05", no = setting)) %>% 
+  dplyr::filter(is.na(setting) == FALSE) %>%
+  dplyr::filter(is.na(value) == FALSE) %>%
   dplyr::mutate(value = kableExtra::cell_spec(value, "html", color = ifelse(abs(value) <= 4.0, "#00cc00","firebrick"), background = ifelse(setting == "low-mag", "white","black"), bold = TRUE)) %>%
-  reshape2::dcast(sensor + measurement + stat ~ test.date)
+  dplyr::filter(test_date >= run_3_duration[1]) %>% 
+  reshape2::dcast(sensor + measurement + stat ~ test_date)
 DT::datatable(avel_axsDeg.diffMean, escape = FALSE, options = list(dom = 't')) 
 ```
 
@@ -372,11 +347,16 @@ ang_axsDeg.diffMean <- stats.data %>%
   dplyr::filter(stringr::str_detect(string = measurement, pattern = "angZ") == TRUE) %>%
   dplyr::filter(stat %in% c("diffMean"))%>%
   dplyr::mutate(value = round(value, 5)) %>%
-  dplyr::mutate(setting = ifelse(test = sensor == "soniAmrs02" & test.date %in% c("2020-03-25", "2020-03-26", "2020-03-27","2020-03-30", "2020-03-31"), yes = "general", no = 
-                    ifelse(test = sensor == "soniAmrs02" & test.date %in% c("2020-04-01", "2020-04-02", "2020-04-03", "2020-04-04", "2020-04-05", "2020-04-06", "2020-04-07", "2020-04-08", "2020-04-09" , "2020-04-10", "2020-04-11"), yes = "low-mag", no = 
-                    ifelse(test = sensor == "soniAmrs03" & test.date %in% c("2020-03-25", "2020-03-26", "2020-03-27","2020-03-30", "2020-03-31"), yes = "low-mag", no = "general")))) %>%
+  dplyr::mutate(test_date = as.Date(test.date, origin = "1970-01-01")) %>% dplyr::select(-test.date) %>% 
+  dplyr::mutate(setting = ifelse(test = sensor == "soniAmrs02" & test_date %in% seq.Date(from = run_2_duration[1], to = run_2_duration[2], by = "1 day"), yes = "01.04.05", no = NA)) %>% 
+  dplyr::mutate(setting = ifelse(test = sensor == "soniAmrs02" & test_date %in% seq.Date(from = run_3_duration[1], to = run_3_duration[2], by = "1 day"), yes = "01.05.01", no = setting)) %>% 
+  dplyr::mutate(setting = ifelse(test = sensor == "soniAmrs03" & test_date %in% seq.Date(from = run_2_duration[1], to = run_2_duration[2], by = "1 day"), yes = "01.05.01", no = setting)) %>%
+  dplyr::mutate(setting = ifelse(test = sensor == "soniAmrs03" & test_date %in% seq.Date(from = run_3_duration[1], to = run_3_duration[2], by = "1 day"), yes = "01.04.05", no = setting)) %>% 
+  dplyr::filter(is.na(setting) == FALSE) %>%
+  dplyr::filter(is.na(value) == FALSE) %>%
   dplyr::mutate(value = kableExtra::cell_spec(value, "html", color = ifelse(abs(value) <= 4.0, "#00cc00","firebrick"), background = ifelse(setting == "low-mag", "white","black"), bold = TRUE)) %>%
-  reshape2::dcast(sensor + measurement + stat ~ test.date)
+  dplyr::filter(test_date >= run_3_duration[1]) %>% 
+  reshape2::dcast(sensor + measurement + stat ~ test_date)
 DT::datatable(ang_axsDeg.diffMean, escape = FALSE, options = list(dom = 't'))
 ```
 
@@ -395,11 +375,16 @@ ang_axsDeg.prcs <- stats.data %>%
   dplyr::filter(stringr::str_detect(string = measurement, pattern = "ang") == TRUE) %>%
   dplyr::filter(stat %in% c("prcs"))%>%
   dplyr::mutate(value = round(value, 5)) %>%
-  dplyr::mutate(setting = ifelse(test = sensor == "soniAmrs02" & test.date %in% c("2020-03-25", "2020-03-26", "2020-03-27","2020-03-30", "2020-03-31"), yes = "general", no = 
-                    ifelse(test = sensor == "soniAmrs02" & test.date %in% c("2020-04-01", "2020-04-02", "2020-04-03", "2020-04-04", "2020-04-05", "2020-04-06", "2020-04-07", "2020-04-08", "2020-04-09" , "2020-04-10", "2020-04-11"), yes = "low-mag", no = 
-                    ifelse(test = sensor == "soniAmrs03" & test.date %in% c("2020-03-25", "2020-03-26", "2020-03-27","2020-03-30", "2020-03-31"), yes = "low-mag", no = "general")))) %>%
+  dplyr::mutate(test_date = as.Date(test.date, origin = "1970-01-01")) %>% dplyr::select(-test.date) %>% 
+  dplyr::mutate(setting = ifelse(test = sensor == "soniAmrs02" & test_date %in% seq.Date(from = run_2_duration[1], to = run_2_duration[2], by = "1 day"), yes = "01.04.05", no = NA)) %>% 
+  dplyr::mutate(setting = ifelse(test = sensor == "soniAmrs02" & test_date %in% seq.Date(from = run_3_duration[1], to = run_3_duration[2], by = "1 day"), yes = "01.05.01", no = setting)) %>% 
+  dplyr::mutate(setting = ifelse(test = sensor == "soniAmrs03" & test_date %in% seq.Date(from = run_2_duration[1], to = run_2_duration[2], by = "1 day"), yes = "01.05.01", no = setting)) %>%
+  dplyr::mutate(setting = ifelse(test = sensor == "soniAmrs03" & test_date %in% seq.Date(from = run_3_duration[1], to = run_3_duration[2], by = "1 day"), yes = "01.04.05", no = setting)) %>%
+  dplyr::filter(is.na(setting) == FALSE) %>%
+  dplyr::filter(is.na(value) == FALSE) %>%
   dplyr::mutate(value = kableExtra::cell_spec(value, "html", color = ifelse(abs(value) <= 0.1, "#00cc00","firebrick"), background = ifelse(setting == "low-mag", "white","black"), bold = TRUE)) %>%
-  reshape2::dcast(sensor + measurement + stat ~ test.date)
+  dplyr::filter(test_date >= run_3_duration[1]) %>% 
+  reshape2::dcast(sensor + measurement + stat ~ test_date)
 DT::datatable(ang_axsDeg.prcs, escape = FALSE, options = list(dom = 't')) 
 ```
 
@@ -414,11 +399,15 @@ ang_axsDeg.reso <- stats.data %>%
   dplyr::filter(stringr::str_detect(string = measurement, pattern = "ang") == TRUE) %>%
   dplyr::filter(stat %in% c("reso"))%>%
   # dplyr::mutate(value = round(value, 7)) %>%
-  dplyr::mutate(setting = ifelse(test = sensor == "soniAmrs02" & test.date %in% c("2020-03-25", "2020-03-26", "2020-03-27","2020-03-30", "2020-03-31"), yes = "general", no = 
-                      ifelse(test = sensor == "soniAmrs02" & test.date %in% c("2020-04-01", "2020-04-02", "2020-04-03", "2020-04-04", "2020-04-05", "2020-04-06", "2020-04-07", "2020-04-08", "2020-04-09" , "2020-04-10", "2020-04-11"), yes = "low-mag", no = 
-                      ifelse(test = sensor == "soniAmrs03" & test.date %in% c("2020-03-25", "2020-03-26", "2020-03-27","2020-03-30", "2020-03-31"), yes = "low-mag", no = "general")))) %>%
+  dplyr::mutate(test_date = as.Date(test.date, origin = "1970-01-01")) %>% dplyr::select(-test.date) %>% 
+  dplyr::mutate(setting = ifelse(test = sensor == "soniAmrs02" & test_date %in% seq.Date(from = run_2_duration[1], to = run_2_duration[2], by = "1 day"), yes = "01.04.05", no = NA)) %>% 
+  dplyr::mutate(setting = ifelse(test = sensor == "soniAmrs02" & test_date %in% seq.Date(from = run_3_duration[1], to = run_3_duration[2], by = "1 day"), yes = "01.05.01", no = setting)) %>% 
+  dplyr::mutate(setting = ifelse(test = sensor == "soniAmrs03" & test_date %in% seq.Date(from = run_2_duration[1], to = run_2_duration[2], by = "1 day"), yes = "01.05.01", no = setting)) %>%
+  dplyr::mutate(setting = ifelse(test = sensor == "soniAmrs03" & test_date %in% seq.Date(from = run_3_duration[1], to = run_3_duration[2], by = "1 day"), yes = "01.04.05", no = setting)) %>%
+  dplyr::filter(is.na(setting) == FALSE) %>%
+  dplyr::filter(is.na(value) == FALSE) %>%
   dplyr::mutate(value = kableExtra::cell_spec(value, "html", color = ifelse(abs(value) <= 0.05, "#00cc00","firebrick"), background = ifelse(setting == "low-mag", "white","black"), bold = TRUE)) %>%
-  reshape2::dcast(sensor + measurement + stat ~ test.date)
+  reshape2::dcast(sensor + measurement + stat ~ test_date)
 DT::datatable(ang_axsDeg.reso, escape = FALSE, options = list(dom = 't')) 
 ```
 
@@ -433,11 +422,15 @@ ang_axsDeg.diffMean <- stats.data %>%
   dplyr::filter(measurement %in% c("angYaxsDeg", "angXaxsDeg")) %>%
   dplyr::filter(stat %in% c("diffMean"))%>%
   dplyr::mutate(value = round(value, 5)) %>%
-  dplyr::mutate(setting = ifelse(test = sensor == "soniAmrs02" & test.date %in% c("2020-03-25", "2020-03-26", "2020-03-27","2020-03-30", "2020-03-31"), yes = "general", no = 
-                      ifelse(test = sensor == "soniAmrs02" & test.date %in% c("2020-04-01", "2020-04-02", "2020-04-03", "2020-04-04", "2020-04-05", "2020-04-06", "2020-04-07", "2020-04-08", "2020-04-09" , "2020-04-10", "2020-04-11"), yes = "low-mag", no = 
-                      ifelse(test = sensor == "soniAmrs03" & test.date %in% c("2020-03-25", "2020-03-26", "2020-03-27","2020-03-30", "2020-03-31"), yes = "low-mag", no = "general")))) %>%
+  dplyr::mutate(test_date = as.Date(test.date, origin = "1970-01-01")) %>% dplyr::select(-test.date) %>% 
+  dplyr::mutate(setting = ifelse(test = sensor == "soniAmrs02" & test_date %in% seq.Date(from = run_2_duration[1], to = run_2_duration[2], by = "1 day"), yes = "01.04.05", no = NA)) %>% 
+  dplyr::mutate(setting = ifelse(test = sensor == "soniAmrs02" & test_date %in% seq.Date(from = run_3_duration[1], to = run_3_duration[2], by = "1 day"), yes = "01.05.01", no = setting)) %>% 
+  dplyr::mutate(setting = ifelse(test = sensor == "soniAmrs03" & test_date %in% seq.Date(from = run_2_duration[1], to = run_2_duration[2], by = "1 day"), yes = "01.05.01", no = setting)) %>%
+  dplyr::mutate(setting = ifelse(test = sensor == "soniAmrs03" & test_date %in% seq.Date(from = run_3_duration[1], to = run_3_duration[2], by = "1 day"), yes = "01.04.05", no = setting)) %>%
+  dplyr::filter(is.na(setting) == FALSE) %>%
+  dplyr::filter(is.na(value) == FALSE) %>%
   dplyr::mutate(value = kableExtra::cell_spec(value, "html", color = ifelse(abs(value) <= 1.0, "#00cc00","firebrick"), background = ifelse(setting == "low-mag", "white","black"), bold = TRUE)) %>%
-  reshape2::dcast(sensor + measurement + stat ~ test.date)
+  reshape2::dcast(sensor + measurement + stat ~ test_date)
 DT::datatable(ang_axsDeg.diffMean, escape = FALSE, options = list(dom = 't')) 
 ```
 
@@ -562,7 +555,7 @@ ang.reshape <- ang.plot.nona %>%
   dplyr::group_by(variable) %>%
   tidyr::separate(variable, into = c("sensor","stream"))
 p1.ang.x <- ggplot(ang.reshape %>% dplyr::filter(stream == "angX") %>% dplyr::filter(sensor == "amrs01")) +
-  annotate("rect", xmin = experiment1.start, xmax = experiment2.end, ymin = -3, ymax = 2, alpha = 0.75, fill = "black")+
+  annotate("rect", xmin = run_1_duration[1], xmax = run_2_duration[2], ymin = -3, ymax = 2, alpha = 0.75, fill = "black")+
   geom_point(alpha = .5, aes(x = time, y = value), color = "violet", shape = 1) +
   scale_x_datetime(date_breaks = "2 days", date_labels = "%b-%d") +
   scale_y_continuous(breaks = scales::pretty_breaks(n = 6))+
@@ -570,8 +563,8 @@ p1.ang.x <- ggplot(ang.reshape %>% dplyr::filter(stream == "angX") %>% dplyr::fi
   labs(title = "", y = "Degrees", x = "") +
   facet_wrap(~sensor, scales = "free_y")
 p2.ang.x <- ggplot(ang.reshape %>% dplyr::filter(stream == "angX") %>% dplyr::filter(sensor == "amrs02")) +
-  annotate("rect", xmin = experiment1.start, xmax = experiment1.end, ymin = -3, ymax = 2, alpha = 0.75, fill = "black")+
-  annotate("rect", xmin = experiment2.start, xmax = experiment2.end, ymin = -3, ymax = 2, alpha = 0.75, fill = "white")+
+  annotate("rect", xmin = run_1_duration[1], xmax = run_1_duration[2], ymin = -3, ymax = 2, alpha = 0.75, fill = "black")+
+  annotate("rect", xmin = run_2_duration[1], xmax = run_2_duration[2], ymin = -3, ymax = 2, alpha = 0.75, fill = "white")+
   geom_point(alpha = .5, aes(x = time, y = value), color = "firebrick", shape = 1) +
   scale_x_datetime(date_breaks = "2 days", date_labels = "%b-%d") +
   scale_y_continuous(breaks = scales::pretty_breaks(n = 6))+
@@ -579,8 +572,8 @@ p2.ang.x <- ggplot(ang.reshape %>% dplyr::filter(stream == "angX") %>% dplyr::fi
   labs(title = "", y = "", x = "") +
   facet_wrap(~sensor, scales = "free_y")
 p3.ang.x <- ggplot(ang.reshape %>% dplyr::filter(stream == "angX") %>% dplyr::filter(sensor == "amrs03")) +
-  annotate("rect", xmin = experiment1.start, xmax = experiment1.end, ymin = -3, ymax = 2, alpha = 0.75, fill = "white")+
-  annotate("rect", xmin = experiment2.start, xmax = experiment2.end, ymin = -3, ymax = 2, alpha = 0.75, fill = "black")+
+  annotate("rect", xmin = run_1_duration[1], xmax = run_1_duration[2], ymin = -3, ymax = 2, alpha = 0.75, fill = "white")+
+  annotate("rect", xmin = run_2_duration[1], xmax = run_2_duration[2], ymin = -3, ymax = 2, alpha = 0.75, fill = "black")+
   geom_point(alpha = .5, aes(x = time, y = value), color = "blue", shape = 1) +
   scale_x_datetime(date_breaks = "2 days", date_labels = "%b-%d") +
   scale_y_continuous(breaks = scales::pretty_breaks(n = 6))+
@@ -592,7 +585,7 @@ gridExtra::grid.arrange(p1.ang.x, p2.ang.x, p3.ang.x, nrow = 1,
                         bottom = grid::textGrob("Black shadding indicates general filter applied, \n\t\twhite shading indicates low-mag filter applied",gp=gpar(fontsize=12,font=3))
                           )
 p1.ang.y <- ggplot(ang.reshape %>% dplyr::filter(stream == "angY") %>% dplyr::filter(sensor == "amrs01")) +
-  annotate("rect", xmin = experiment1.start, xmax = experiment2.end, ymin = -3, ymax = 2, alpha = 0.75, fill = "black")+
+  annotate("rect", xmin = run_1_duration[1], xmax = run_2_duration[2], ymin = -3, ymax = 2, alpha = 0.75, fill = "black")+
   geom_point(alpha = .5, aes(x = time, y = value), color = "violet", shape = 1) +
   scale_x_datetime(date_breaks = "2 days", date_labels = "%b-%d") +
   scale_y_continuous(breaks = scales::pretty_breaks(n = 6))+
@@ -600,8 +593,8 @@ p1.ang.y <- ggplot(ang.reshape %>% dplyr::filter(stream == "angY") %>% dplyr::fi
   labs(title = "", y = "Degrees", x = "") +
   facet_wrap(~sensor, scales = "free_y")
 p2.ang.y <- ggplot(ang.reshape %>% dplyr::filter(stream == "angY") %>% dplyr::filter(sensor == "amrs02")) +
-  annotate("rect", xmin = experiment1.start, xmax = experiment1.end, ymin = -3, ymax = 2, alpha = 0.75, fill = "black")+
-  annotate("rect", xmin = experiment2.start, xmax = experiment2.end, ymin = -3, ymax = 2, alpha = 0.75, fill = "white")+
+  annotate("rect", xmin = run_1_duration[1], xmax = run_1_duration[2], ymin = -3, ymax = 2, alpha = 0.75, fill = "black")+
+  annotate("rect", xmin = run_2_duration[1], xmax = run_2_duration[2], ymin = -3, ymax = 2, alpha = 0.75, fill = "white")+
   geom_point(alpha = .5, aes(x = time, y = value), color = "firebrick", shape = 1) +
   scale_x_datetime(date_breaks = "2 days", date_labels = "%b-%d") +
   scale_y_continuous(breaks = scales::pretty_breaks(n = 6))+
@@ -609,8 +602,8 @@ p2.ang.y <- ggplot(ang.reshape %>% dplyr::filter(stream == "angY") %>% dplyr::fi
   labs(title = "", y = "", x = "") +
   facet_wrap(~sensor, scales = "free_y")
 p3.ang.y <- ggplot(ang.reshape %>% dplyr::filter(stream == "angY") %>% dplyr::filter(sensor == "amrs03")) +
-  annotate("rect", xmin = experiment1.start, xmax = experiment1.end, ymin = -3, ymax = 2, alpha = 0.75, fill = "white")+
-  annotate("rect", xmin = experiment2.start, xmax = experiment2.end, ymin = -3, ymax = 2, alpha = 0.75, fill = "black")+
+  annotate("rect", xmin = run_1_duration[1], xmax = run_1_duration[2], ymin = -3, ymax = 2, alpha = 0.75, fill = "white")+
+  annotate("rect", xmin = run_2_duration[1], xmax = run_2_duration[2], ymin = -3, ymax = 2, alpha = 0.75, fill = "black")+
   geom_point(alpha = .5, aes(x = time, y = value), color = "blue", shape = 1) +
   scale_x_datetime(date_breaks = "2 days", date_labels = "%b-%d") +
   scale_y_continuous(breaks = scales::pretty_breaks(n = 6))+
@@ -622,7 +615,7 @@ gridExtra::grid.arrange(p1.ang.y, p2.ang.y, p3.ang.y, nrow = 1,
                         bottom = grid::textGrob("Black shadding indicates general filter applied, \n\t\twhite shading indicates low-mag filter applied",gp=gpar(fontsize=12,font=3))
                           )
 p1.ang.z <- ggplot(ang.reshape %>% dplyr::filter(stream == "angZ") %>% dplyr::filter(sensor == "amrs01")) +
-  annotate("rect", xmin = experiment1.start, xmax = experiment2.end, ymin = 330, ymax = 347, alpha = 0.75, fill = "black")+
+  annotate("rect", xmin = run_1_duration[1], xmax = run_2_duration[2], ymin = 330, ymax = 347, alpha = 0.75, fill = "black")+
   geom_point(alpha = .5, aes(x = time, y = value), color = "violet", shape = 1) +
   geom_hline(yintercept = 337.47, linetype = "dashed") +
   scale_x_datetime(date_breaks = "2 days", date_labels = "%b-%d") +
@@ -632,8 +625,8 @@ p1.ang.z <- ggplot(ang.reshape %>% dplyr::filter(stream == "angZ") %>% dplyr::fi
   ylim(330, 347) +
   facet_wrap(~sensor, scales = "free_y")
 p2.ang.z <- ggplot(ang.reshape %>% dplyr::filter(stream == "angZ") %>% dplyr::filter(sensor == "amrs02")) +
-  annotate("rect", xmin = experiment1.start, xmax = experiment1.end, ymin = 330, ymax = 347, alpha = 0.75, fill = "black")+
-  annotate("rect", xmin = experiment2.start, xmax = experiment2.end, ymin = 330, ymax = 347, alpha = 0.75, fill = "white")+
+  annotate("rect", xmin = run_1_duration[1], xmax = run_1_duration[2], ymin = 330, ymax = 347, alpha = 0.75, fill = "black")+
+  annotate("rect", xmin = run_2_duration[1], xmax = run_2_duration[2], ymin = 330, ymax = 347, alpha = 0.75, fill = "white")+
   geom_point(alpha = .5, aes(x = time, y = value), color = "firebrick", shape = 1) +
   geom_hline(yintercept = 337.47, linetype = "dashed") +
   scale_x_datetime(date_breaks = "2 days", date_labels = "%b-%d") +
@@ -643,8 +636,8 @@ p2.ang.z <- ggplot(ang.reshape %>% dplyr::filter(stream == "angZ") %>% dplyr::fi
   labs(title = "", y = "", x = "") +
   facet_wrap(~sensor, scales = "free_y")
 p3.ang.z <- ggplot(ang.reshape %>% dplyr::filter(stream == "angZ") %>% dplyr::filter(sensor == "amrs03")) +
-  annotate("rect", xmin = experiment1.start, xmax = experiment1.end, ymin = 330, ymax = 347, alpha = 0.75, fill = "white")+
-  annotate("rect", xmin = experiment2.start, xmax = experiment2.end, ymin = 330, ymax = 347, alpha = 0.75, fill = "black")+
+  annotate("rect", xmin = run_1_duration[1], xmax = run_1_duration[2], ymin = 330, ymax = 347, alpha = 0.75, fill = "white")+
+  annotate("rect", xmin = run_2_duration[1], xmax = run_2_duration[2], ymin = 330, ymax = 347, alpha = 0.75, fill = "black")+
   geom_point(alpha = .5, aes(x = time, y = value), color = "blue", shape = 1) +
   geom_hline(yintercept = 337.47, linetype = "dashed") +
   scale_x_datetime(date_breaks = "2 days", date_labels = "%b-%d") +
@@ -682,7 +675,7 @@ acc.reshape <- acc.plot.nona %>%
   dplyr::group_by(variable) %>%
   tidyr::separate(variable, into = c("sensor","stream"))
 p1.acc.x <- ggplot(acc.reshape %>% dplyr::filter(stream == "accX") %>% dplyr::filter(sensor == "amrs01")) +
-  annotate("rect", xmin = experiment1.start, xmax = experiment2.end, ymin = -0.05, ymax = 0.05, alpha = 0.75, fill = "black")+
+  annotate("rect", xmin = run_1_duration[1], xmax = run_2_duration[2], ymin = -0.05, ymax = 0.05, alpha = 0.75, fill = "black")+
   geom_point(alpha = .5, aes(x = time, y = value), color = "violet", shape = 1) +
   scale_x_datetime(date_breaks = "2 days", date_labels = "%b-%d") +
   scale_y_continuous(breaks = scales::pretty_breaks(n = 6))+
@@ -690,8 +683,8 @@ p1.acc.x <- ggplot(acc.reshape %>% dplyr::filter(stream == "accX") %>% dplyr::fi
   labs(title = "", y = "Degrees", x = "") +
   facet_wrap(~sensor, scales = "free_y")
 p2.acc.x <- ggplot(acc.reshape %>% dplyr::filter(stream == "accX") %>% dplyr::filter(sensor == "amrs02")) +
-  annotate("rect", xmin = experiment1.start, xmax = experiment1.end, ymin = -0.05, ymax = 0.05, alpha = 0.75, fill = "black")+
-  annotate("rect", xmin = experiment2.start, xmax = experiment2.end, ymin = -0.05, ymax = 0.05, alpha = 0.75, fill = "white")+
+  annotate("rect", xmin = run_1_duration[1], xmax = run_1_duration[2], ymin = -0.05, ymax = 0.05, alpha = 0.75, fill = "black")+
+  annotate("rect", xmin = run_2_duration[1], xmax = run_2_duration[2], ymin = -0.05, ymax = 0.05, alpha = 0.75, fill = "white")+
   geom_point(alpha = .5, aes(x = time, y = value), color = "firebrick", shape = 1) +
   scale_x_datetime(date_breaks = "2 days", date_labels = "%b-%d") +
   scale_y_continuous(breaks = scales::pretty_breaks(n = 6))+
@@ -699,8 +692,8 @@ p2.acc.x <- ggplot(acc.reshape %>% dplyr::filter(stream == "accX") %>% dplyr::fi
   labs(title = "", y = "", x = "") +
   facet_wrap(~sensor, scales = "free_y")
 p3.acc.x <- ggplot(acc.reshape %>% dplyr::filter(stream == "accX") %>% dplyr::filter(sensor == "amrs03")) +
-  annotate("rect", xmin = experiment1.start, xmax = experiment1.end, ymin = -0.05, ymax = 0.05, alpha = 0.75, fill = "white")+
-  annotate("rect", xmin = experiment2.start, xmax = experiment2.end, ymin = -0.05, ymax = 0.05, alpha = 0.75, fill = "black")+
+  annotate("rect", xmin = run_1_duration[1], xmax = run_1_duration[2], ymin = -0.05, ymax = 0.05, alpha = 0.75, fill = "white")+
+  annotate("rect", xmin = run_2_duration[1], xmax = run_2_duration[2], ymin = -0.05, ymax = 0.05, alpha = 0.75, fill = "black")+
   geom_point(alpha = .5, aes(x = time, y = value), color = "blue", shape = 1) +
   scale_x_datetime(date_breaks = "2 days", date_labels = "%b-%d") +
   scale_y_continuous(breaks = scales::pretty_breaks(n = 6))+
@@ -712,7 +705,7 @@ gridExtra::grid.arrange(p1.acc.x, p2.acc.x, p3.acc.x, nrow = 1,
                         bottom = grid::textGrob("Black shadding indicates general filter applied, \n\t\twhite shading indicates low-mag filter applied",gp=gpar(fontsize=12,font=3))
                           )
 p1.acc.y <- ggplot(acc.reshape %>% dplyr::filter(stream == "accY") %>% dplyr::filter(sensor == "amrs01")) +
-  annotate("rect", xmin = experiment1.start, xmax = experiment2.end, ymin = -0.3, ymax = -0.25, alpha = 0.75, fill = "black")+
+  annotate("rect", xmin = run_1_duration[1], xmax = run_2_duration[2], ymin = -0.3, ymax = -0.25, alpha = 0.75, fill = "black")+
   geom_point(alpha = .5, aes(x = time, y = value), color = "violet", shape = 1) +
   scale_x_datetime(date_breaks = "2 days", date_labels = "%b-%d") +
   scale_y_continuous(breaks = scales::pretty_breaks(n = 6))+
@@ -720,8 +713,8 @@ p1.acc.y <- ggplot(acc.reshape %>% dplyr::filter(stream == "accY") %>% dplyr::fi
   labs(title = "", y = "Degrees", x = "") +
   facet_wrap(~sensor, scales = "free_y")
 p2.acc.y <- ggplot(acc.reshape %>% dplyr::filter(stream == "accY") %>% dplyr::filter(sensor == "amrs02")) +
-  annotate("rect", xmin = experiment1.start, xmax = experiment1.end, ymin = -0.3, ymax = -0.25, alpha = 0.75, fill = "black")+
-  annotate("rect", xmin = experiment2.start, xmax = experiment2.end, ymin = -0.3, ymax = -0.25, alpha = 0.75, fill = "white")+
+  annotate("rect", xmin = run_1_duration[1], xmax = run_1_duration[2], ymin = -0.3, ymax = -0.25, alpha = 0.75, fill = "black")+
+  annotate("rect", xmin = run_2_duration[1], xmax = run_2_duration[2], ymin = -0.3, ymax = -0.25, alpha = 0.75, fill = "white")+
   geom_point(alpha = .5, aes(x = time, y = value), color = "firebrick", shape = 1) +
   scale_x_datetime(date_breaks = "2 days", date_labels = "%b-%d") +
   scale_y_continuous(breaks = scales::pretty_breaks(n = 6))+
@@ -729,8 +722,8 @@ p2.acc.y <- ggplot(acc.reshape %>% dplyr::filter(stream == "accY") %>% dplyr::fi
   labs(title = "", y = "", x = "") +
   facet_wrap(~sensor, scales = "free_y")
 p3.acc.y <- ggplot(acc.reshape %>% dplyr::filter(stream == "accY") %>% dplyr::filter(sensor == "amrs03")) +
-  annotate("rect", xmin = experiment1.start, xmax = experiment1.end, ymin = -0.3, ymax = -0.25, alpha = 0.75, fill = "white")+
-  annotate("rect", xmin = experiment2.start, xmax = experiment2.end, ymin = -0.3, ymax = -0.25, alpha = 0.75, fill = "black")+
+  annotate("rect", xmin = run_1_duration[1], xmax = run_1_duration[2], ymin = -0.3, ymax = -0.25, alpha = 0.75, fill = "white")+
+  annotate("rect", xmin = run_2_duration[1], xmax = run_2_duration[2], ymin = -0.3, ymax = -0.25, alpha = 0.75, fill = "black")+
   geom_point(alpha = .5, aes(x = time, y = value), color = "blue", shape = 1) +
   scale_x_datetime(date_breaks = "2 days", date_labels = "%b-%d") +
   scale_y_continuous(breaks = scales::pretty_breaks(n = 6))+
@@ -742,7 +735,7 @@ gridExtra::grid.arrange(p1.acc.y, p2.acc.y, p3.acc.y, nrow = 1,
                         bottom = grid::textGrob("Black shadding indicates general filter applied, \n\t\twhite shading indicates low-mag filter applied",gp=gpar(fontsize=12,font=3))
                           )
 p1.acc.z <- ggplot(acc.reshape %>% dplyr::filter(stream == "accZ") %>% dplyr::filter(sensor == "amrs01")) +
-  annotate("rect", xmin = experiment1.start, xmax = experiment2.end, ymin = 9.7, ymax = 9.85, alpha = 0.75, fill = "black")+
+  annotate("rect", xmin = run_1_duration[1], xmax = run_2_duration[2], ymin = 9.7, ymax = 9.85, alpha = 0.75, fill = "black")+
   geom_point(alpha = .5, aes(x = time, y = value), color = "violet", shape = 1) +
   scale_x_datetime(date_breaks = "2 days", date_labels = "%b-%d") +
   scale_y_continuous(breaks = scales::pretty_breaks(n = 6))+
@@ -750,8 +743,8 @@ p1.acc.z <- ggplot(acc.reshape %>% dplyr::filter(stream == "accZ") %>% dplyr::fi
   labs(title = "", y = "Degrees", x = "") +
   facet_wrap(~sensor, scales = "free_y")
 p2.acc.z <- ggplot(acc.reshape %>% dplyr::filter(stream == "accZ") %>% dplyr::filter(sensor == "amrs02")) +
-  annotate("rect", xmin = experiment1.start, xmax = experiment1.end, ymin = 9.7, ymax = 9.85, alpha = 0.75, fill = "black")+
-  annotate("rect", xmin = experiment2.start, xmax = experiment2.end, ymin = 9.7, ymax = 9.85, alpha = 0.75, fill = "white")+
+  annotate("rect", xmin = run_1_duration[1], xmax = run_1_duration[2], ymin = 9.7, ymax = 9.85, alpha = 0.75, fill = "black")+
+  annotate("rect", xmin = run_2_duration[1], xmax = run_2_duration[2], ymin = 9.7, ymax = 9.85, alpha = 0.75, fill = "white")+
   geom_point(alpha = .5, aes(x = time, y = value), color = "firebrick", shape = 1) +
   scale_x_datetime(date_breaks = "2 days", date_labels = "%b-%d") +
   scale_y_continuous(breaks = scales::pretty_breaks(n = 6))+
@@ -759,8 +752,8 @@ p2.acc.z <- ggplot(acc.reshape %>% dplyr::filter(stream == "accZ") %>% dplyr::fi
   labs(title = "", y = "", x = "") +
   facet_wrap(~sensor, scales = "free_y")
 p3.acc.z <- ggplot(acc.reshape %>% dplyr::filter(stream == "accZ") %>% dplyr::filter(sensor == "amrs03")) +
-  annotate("rect", xmin = experiment1.start, xmax = experiment1.end, ymin = 9.7, ymax = 9.85, alpha = 0.75, fill = "white")+
-  annotate("rect", xmin = experiment2.start, xmax = experiment2.end, ymin = 9.7, ymax = 9.85, alpha = 0.75, fill = "black")+
+  annotate("rect", xmin = run_1_duration[1], xmax = run_1_duration[2], ymin = 9.7, ymax = 9.85, alpha = 0.75, fill = "white")+
+  annotate("rect", xmin = run_2_duration[1], xmax = run_2_duration[2], ymin = 9.7, ymax = 9.85, alpha = 0.75, fill = "black")+
   geom_point(alpha = .5, aes(x = time, y = value), color = "blue", shape = 1) +
   scale_x_datetime(date_breaks = "2 days", date_labels = "%b-%d") +
   scale_y_continuous(breaks = scales::pretty_breaks(n = 6))+
