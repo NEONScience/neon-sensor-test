@@ -78,7 +78,7 @@ download_amrs_comparison_data = function(sensorID = "AMRS_01", round = "3", run 
   if(base::dir.exists(paste0(temp_dir_path, "/", sensorID))){} else {
     base::dir.create(path = paste0(temp_dir_path, "/", sensorID))
   }
-  
+
   message(paste0(Sys.time(), ": downloading data"))
   for(i in base::seq_along(test_data_lookup$Key)){
     
@@ -89,19 +89,21 @@ download_amrs_comparison_data = function(sensorID = "AMRS_01", round = "3", run 
     
     # Form Local Save Path
     if(run == "1"){
-      
       local_file_name = base::substr(test_data_lookup$Key[i], start = 19, stop = 999)
-      local_save_path = paste0(temp_dir_path, sensorID, "/", local_file_name)
+      # local_save_path = paste0(temp_dir_path, sensorID, "/", local_file_name) # OLD METHOD
+      local_save_path = paste0(temp_dir_path, sensorID, "/ECTE_dp0p_HQTW_", file_date, ".h5.gz")
     } else if(run == "2"){
       local_file_name = base::substr(test_data_lookup$Key[i], start = 25, stop = 999)
-      local_save_path = paste0(temp_dir_path, sensorID, "/", local_file_name)
+      # local_save_path = paste0(temp_dir_path, sensorID, "/", local_file_name) # OLD METHOD
+      local_save_path = paste0(temp_dir_path, sensorID, "/ECTE_dp0p_HQTW_", file_date, ".h5.gz")
     } else if(run == "3"){
       local_file_name = base::substr(test_data_lookup$Key[i], start = 25, stop = 999)
-      local_save_path = paste0(temp_dir_path, sensorID, "/", local_file_name)
+      # local_save_path = paste0(temp_dir_path, sensorID, "/", local_file_name) # OLD METHOD
+      local_save_path = paste0(temp_dir_path, sensorID, "/ECTE_dp0p_HQTW_", file_date, ".h5.gz")
     } else {
       stop("Specify run = '1' or run = '2' or run = '3'")
     }
-    
+
     # Download the zip file
     utils::download.file(url = download_url, destfile = local_save_path, quiet = TRUE)
     
@@ -124,15 +126,30 @@ download_amrs_comparison_data = function(sensorID = "AMRS_01", round = "3", run 
         
         if(nrow(localfile.check) == 1){
           
+          tmpQfqm <- eddy4R.base::def.hdf5.read.qfqm(
+            DirInpLoca = paste0("/tmp/amrs_tests/", sensorID),
+            SiteLoca = "HQTW",
+            DateLoca = file_date,
+            VarLoca = "amrs",
+            FreqLoca = 40,
+            DataType = "qfqm",
+            LvlTowr = "000_040"
+          )
+          
           h5.path = paste0(localfile.check$group[1], "/", localfile.check$name[1])
           
           data.in = rhdf5::h5read(file = localfile, name = h5.path)
-          
+          min(data.in$`000_040`$accXaxs, na.rm = TRUE)
+          sum(is.na(data.in$`000_040`$accXaxs))
           ml = names(data.in)
           
           data.out = data.in[[ml]]
           
-          data.out.len = length(data.out)
+          qfqm_out = eddy4R.qaqc::def.qf.rmv.data(inpData = data.out, inpQf = tmpQfqm, Sens = "amrs", qfRmv = NULL, Vrbs = FALSE) #Remove high frequency data that is flagged by sensor specific flags or plausibility tests flags
+          
+          data_out = data.table::as.data.table(qfqm_out$inpData)
+          
+          data.out.len = length(data_out)
           
           if(data.out.len == 14){
             message(paste0(Sys.time(), ": extracting data"))
@@ -148,25 +165,25 @@ download_amrs_comparison_data = function(sensorID = "AMRS_01", round = "3", run 
             
             # Make data into a data frame
             data.save = data.table::data.table() 
-            data.save$accXaxs     = data.out$accXaxs
-            data.save$accXaxsDiff = data.out$accXaxsDiff
-            data.save$accYaxs     = data.out$accYaxs
-            data.save$accYaxsDiff = data.out$accYaxsDiff
-            data.save$accZaxs     = data.out$accZaxs
-            data.save$accZaxsDiff = data.out$accZaxsDiff
-            data.save$angXaxs     = data.out$angXaxs
-            data.save$angYaxs     = data.out$angYaxs
-            data.save$angZaxs     = data.out$angZaxs
-            data.save$avelXaxs    = data.out$avelXaxs
-            data.save$avelYaxs    = data.out$avelYaxs
-            data.save$avelZaxs    = data.out$avelZaxs
-            data.save$idx         = data.out$idx
-            data.save$time        = data.out$time
+            data.save$accXaxs     = data_out$accXaxs
+            data.save$accXaxsDiff = data_out$accXaxsDiff
+            data.save$accYaxs     = data_out$accYaxs
+            data.save$accYaxsDiff = data_out$accYaxsDiff
+            data.save$accZaxs     = data_out$accZaxs
+            data.save$accZaxsDiff = data_out$accZaxsDiff
+            data.save$angXaxs     = data_out$angXaxs
+            data.save$angYaxs     = data_out$angYaxs
+            data.save$angZaxs     = data_out$angZaxs
+            data.save$avelXaxs    = data_out$avelXaxs
+            data.save$avelYaxs    = data_out$avelYaxs
+            data.save$avelZaxs    = data_out$avelZaxs
+            data.save$idx         = data_out$idx
+            data.save$time        = data_out$time
             
             # Format time
             data.save = data.save %>% 
               dplyr::mutate(time = as.POSIXct(time,format = "%Y-%m-%dT%H:%M:%OS", tz = "UTC"))
-            
+
             # fst files have better compression read about 1.5 times faster and save at the same size with the 100 compression
             # reading in a single column is twice as fast as reading in just 1 column, so if memory is limited this may be a good approach, but otherwise its smarter to just read in all the data
             message(paste0(Sys.time(), ": saving data"))
@@ -192,23 +209,25 @@ download_amrs_comparison_data = function(sensorID = "AMRS_01", round = "3", run 
   
   # S3 UN-Connection
   Sys.unsetenv("AWS_SECRET_ACCESS_KEY")
+  Sys.unsetenv("AWS_ACCESS_KEY_ID")
   Sys.unsetenv("AWS_S3_ENDPOINT")
   Sys.unsetenv("AWS_DEFAULT_REGION")
+  
 }
 
 # Download first run
 download_amrs_comparison_data(sensorID = "AMRS_01", run = "1")
-.rs.restartR()
+# .rs.restartR()
 download_amrs_comparison_data(sensorID = "AMRS_02", run = "1")
-.rs.restartR()
+# .rs.restartR()
 download_amrs_comparison_data(sensorID = "AMRS_03", run = "1")
-# Donwload second run
+# # Donwload second run
 download_amrs_comparison_data(sensorID = "AMRS_01", run = "2")
-.rs.restartR()
+# .rs.restartR()
 download_amrs_comparison_data(sensorID = "AMRS_02", run = "2")
-.rs.restartR()
+# .rs.restartR()
 download_amrs_comparison_data(sensorID = "AMRS_03", run = "2")
-
+# 
 download_amrs_comparison_data(sensorID = "AMRS_01", run = "3")
 download_amrs_comparison_data(sensorID = "AMRS_02", run = "3")
 download_amrs_comparison_data(sensorID = "AMRS_03", run = "3")
