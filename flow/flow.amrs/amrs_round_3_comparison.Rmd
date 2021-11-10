@@ -1,5 +1,5 @@
 ---
-title: "AMRS Intercomparison Round 2"
+title: "AMRS Intercomparison Round 3"
 author:
   - name: Kevin Styers
   - name: Natchya Durden
@@ -61,15 +61,15 @@ soniAmrs03_data <- bigData$avg60 %>%
 # Calculate start end for each run
 run_1_duration_dt = soniAmrs01_data %>% 
   dplyr::filter(run == 1) 
-run_1_duration = c(lubridate::ymd_hms(min(run_1_duration_dt$timeBgn)), lubridate::ymd_hms(max(run_1_duration_dt$timeBgn)))
+run_1_duration = c(as.POSIXct(min(run_1_duration_dt$timeBgn)), as.POSIXct(max(run_1_duration_dt$timeBgn)))
 run_1_duration_date = as.Date(run_1_duration, origin = "1970-01-01")
 run_2_duration_dt = soniAmrs01_data %>% 
   dplyr::filter(run == 2) 
-run_2_duration = c(lubridate::ymd_hms(min(run_2_duration_dt$timeBgn)) , lubridate::ymd_hms(max(run_2_duration_dt$timeBgn)))
+run_2_duration = c(as.POSIXct(min(run_2_duration_dt$timeBgn)) , as.POSIXct(max(run_2_duration_dt$timeBgn)))
 run_2_duration_date = as.Date(run_2_duration, origin = "1970-01-01")
 run_3_duration_dt = soniAmrs01_data %>% 
   dplyr::filter(run == 3) 
-run_3_duration = c(lubridate::ymd_hms(min(run_3_duration_dt$timeBgn)) , lubridate::ymd_hms(max(run_3_duration_dt$timeBgn)-1))
+run_3_duration = c(as.POSIXct(min(run_3_duration_dt$timeBgn)) , as.POSIXct(max(run_3_duration_dt$timeBgn)-1))
 run_3_duration_date = as.Date(run_3_duration, origin = "1970-01-01")
 
 soniAmrs_plot_data <- data.table::rbindlist(l = list(soniAmrs01_data, soniAmrs02_data, soniAmrs03_data))
@@ -77,67 +77,90 @@ soniAmrs_plot_data <- data.table::rbindlist(l = list(soniAmrs01_data, soniAmrs02
 
 # Executive Summary  
 
-An intercomparison analysis was performed to access the potential differences between AMRS values when configured with a general or a low-mag filter setting. From the intercomparision analysis we can infer that the general setting will better serve NEON Science's purposes as it performed better during the testing period across both test sensors as well as the control.  
+An intercomparison analysis was performed to assess the potential differences between AMRS values when configured with different firmware versions.   
 
-*Recommendation:*  
 
-> We propose that going forward all AMRS will be configured with the "general" setting.   
-We expected the largest difference to present itself on the Azimuth angle measurement and the plot below demonstates the performance of each setting with regards to this measurement with the general filter setting having the least amount of noise across all three sensors.  
+~~*Recommendation:*~~
+
+> We propose that
 
 ```{r, layout = "l-page", echo = FALSE}
 ang.plot = bigData$avg60 %>% 
   dplyr::select(timeBgn, sensor, run, angXaxsDeg, angYaxsDeg, angZaxsDeg) %>% 
   reshape2::melt(id.vars = c("timeBgn", "sensor", "run"))
 
-p3.ang_min = 87.25
-p3.ang_max = 88.25
+p3.ang_min = 300
+p3.ang_max = 360
 
 p3.ang <- ggplot(ang.plot %>% dplyr::filter(variable == "angZaxsDeg")) +
   annotate("rect", xmin = run_1_duration[1], xmax = run_1_duration[2], ymin = p3.ang_min, ymax = p3.ang_max, alpha = 0.65, fill = "green")+
   annotate("rect", xmin = run_2_duration[1], xmax = run_2_duration[2], ymin = p3.ang_min, ymax = p3.ang_max, alpha = 0.65, fill = "grey")+
   annotate("rect", xmin = run_3_duration[1], xmax = run_3_duration[2], ymin = p3.ang_min, ymax = p3.ang_max, alpha = 0.65, fill = "black")+
+  geom_hline(yintercept = 337.47, linetype = "dashed") +
   geom_point(alpha = .5, aes(x = timeBgn, y = value, color = sensor)) +
   scale_color_manual(values = c("violet", "firebrick", "blue")) +
   scale_x_datetime(date_breaks = "2 days", date_labels = "%b-%d") +
-  scale_y_continuous(breaks = scales::pretty_breaks(n = 6))+
+  scale_y_continuous(breaks = scales::pretty_breaks(n = 6), limits = c(p3.ang_min,p3.ang_max))+
   theme(axis.text.x = element_text(angle = 270), legend.position = "top") +
-  ylim(p3.ang_min, p3.ang_max) +
-  labs(title = "", y = "", x = "", color ="")
+  labs(title = paste0("angZaxsDeg Measurements over the 3 test runs"), 
+       caption = "First run (Green) was the controll where all 3 AMRSs had the same firmware\nSecond run (light-gray) soniAmrs02 firmware was 01.04.05 and soniAmrs03 firmware was 01.05.01\nThird run (dark-gray) soniAmrs02 and soniAmrs03 switched firmwares from the previous run",
+       y = "Degrees", x = "", color ="")
 p3.ang
 ```
 
 # Purpose  
 
-To access the potential impact of using the "general" setting on the AMRS verus using the "Low-mag" setting. 
+To access the potential impact of using the two non-tested AMRS firmware versions to see if there are any data quality concerns 
 
-# Background  
+# Background   
 
-Several filter settings options can be chosen for AMRS sensor configuration, and the C3 document specifies the “low_mag_dep” filter setting. However, we just learned that all AMRSs already installed at TIS field sites had been configured to the “general” filter setting.  
+Several AMRS firmware versions are currently deployed in the field with various states of Science approval. State as of 2020-02-05:  
 
-> Note: The manual description below provides details for these two filter settings.  
-> Note: For the purpose of this document heading (synonym: yaw) describe the direction an object is pointing to in the horizontal plane, against magnetic north.  
-Following extensive testing during NEON Construction, the SAE Group chose the “low_mag_dep” filter profile. This filter profile aims to mitigate tower structure interference with the earth magnetic field, and hence with the yaw readings reported by the AMRS. Objective 1 of this test is to understand the impacts of these two filter settings on the AMRS data products. This informs the decision whether the “general” setting is robust within requirements against magnetic interference from the tower, or whether all AMRS deployed in the field should be reconfigured to the “low_mag_dep” setting. AMRS Manufacture Xsens refused to lock down a certain hardware and firmware version for NEON, resulting in the continuous change in the sensors we received and will received from the manufacturer.   
+* 30 sites with `01.04.01` (approved version)  
 
-However, the manufacturer provides support to NEON to upgrade or downgrade the sensor firmware version to a NEON approved version. Objective 2 of this test is to understand the sensor function after downgrading from firmware version 1.10.0 to the approved firmware version 1.7.2.  
+* 1   site with `01.07.02` (approved version)   
 
-Note from the manual:  
+* 5 sites with `01.05.01` that was not recommended based on the 1st round of test, and should retest it;  
 
-> The general filter profile is the default setting. It assumes moderate dynamics and a homogenous magnetic field. External magnetic distortions are considered relatively short (up to ~20 seconds). Typical applications include camera tracking (e.g. TV camera’s), remotely operated robotic arms on ROV’s etc.  
-> The low mag_dep filter profile assumes that the dynamics is relatively low and that there are long-lasting external magnetic distortions. Also use this filter profile when it is difficult to do a very good Magnetic Field Mapping (MFM). The use of the low_mag_dep filter profile can be useful to limit drift in heading whilst not being in a homogenous magnetic field. Typical applications are large vessels and unmanned ground vehicles in buildings.  
- 
+* 9 sites with `01.04.05` that wasn't tested.  
+
+* 2 sites unknown due to earthquakes and sensor refreshes.  
+
+Currently the manufacturer declined to lockdown a specific firmware version to sell to NEON. Given this situation, we must test unapproved firmware versions and verify their ability to integrate into the ECTE system to ensure we are delivering scientific data that are consistently within NEON requirements. As the observatory ages, current AMRS’s firmware versions will go through obsolescence and must be replaced with newer firmware. To alleviate data quality and interoperability concerns across NEON sites we must test the unapproved firmware versions that are currently deployed, as well as any new firmware versions NEON receives from the manufacturer. 
+
+Summary of previous tests: 
+
+1. The 1st round of AMRS comparison test was finished and reported the results in October 2018, approving the firmware version of `01.04.01` and `01.07.02`.   
+
+2. The 2nd round of AMRS comparison test was finished and reported results to IS IPT and sent to stakeholders in October 2020 and updated in RITM0019428. The recommendation was that moving forward the AMRS filter setting should be "general", not "low_mag".  
+
+3. For the 3rd round of AMRS tests, NEON shall test the two most widely deployed and unapproved firmware versions (`01.04.05` and `01.05.01`) against the most widely deployed and approved firmware version (`01.04.01`)   
+
 # Method  
 
-Place a control Amrs that is set to *general* and use two other AMRS's that switch their settings after one week of testing so that we can compare the changes the setting has on each test AMRS unit.  
+Place a control AMRS sensor's firmware is set to `01.04.01` for the entire duration of the test. Then use two test AMRS where their firmware versions hold the
 
-* soniAmrs01 was our control unit.  
-* soniAmrs02 was tested first week with *general* setting, then *low-mag*  
-* soniAmrs03 was tested first week with *low-mag* setting, then *general*  
+soniAmrs01 was our control unit, configured with firmware version `01.04.01` for the entire experiment duration.  
 
-![AMRS Experimental Design](N:/Science/FIUDATA/kstyers/amrs.cmpr/images/armsStacking.JPG)
+* Run 1 Configuration [2021-06-22 - 2021-07-23]   
+  * soniAMRS01 - __01.04.01__  
+  * soniAMRS02 - __01.04.01__  
+  * soniAMRS03 - __01.04.01__  
+* Run 2 Configuration [2021-07-24 - 2021-08-07]   
+  * soniAMRS01 - __01.04.01__  
+  * soniAMRS02 - __01.04.05__  
+  * soniAMRS03 - __01.05.01__  
+* Run 3 Configuration [2021-08-16 - 2021-08-29]   
+  * soniAMRS01 - __01.04.01__  
+  * soniAMRS02 - __01.05.01__  
+  * soniAMRS03 - __01.04.05__  
+
+<!-- include image here -->
+![AMRS Experimental Design](/home/kstyers/eddy/neon-sensor-test/flow/flow.amrs/images/amrs_round03_installation.png)
 
 # Wind Data During Comparison Period  
 
-```{r, layout = "l-page", eval=TRUE}
+```{r, layout = "l-page", eval=FALSE}
 bigData$soni_mean_avg90$windDir <- eddy4R.base::def.unit.conv(data = bigData$soni_mean_avg90$angZaxsErth, unitFrom = "rad", unitTo = "deg", MethGc = FALSE)
 bigData$soni_mean_avg1800$windDir <- eddy4R.base::def.unit.conv(data = bigData$soni_mean_avg1800$angZaxsErth, unitFrom = "rad", unitTo = "deg", MethGc = FALSE)
 time <- as.vector(base::as.POSIXlt(bigData$soni_mean_avg1800$timeBgn, format="%Y-%m-%d %H:%M:%OS", tz="UTC"))
@@ -160,6 +183,7 @@ plot.wind.dir <- ggplot(data = wind.speed.data, aes(x = time, y = windDir))+
   theme(axis.text.x = element_text(angle = 270)) +
   labs(x = "", y = "Wind Direction (degrees)", title = "NEON HQ Tower CSAT3 Wind Direction During AMRS Round 2 Intercomparison") +
   ylim(c(-5,370))
+"~/eddy/neon-sensor-test/flow/flow.amrs/images/amrs_round03_installation.png"
 print(plot.wind.speed)
 print(plot.wind.dir)
 ```
@@ -169,10 +193,12 @@ print(plot.wind.dir)
 Key for understanding how each table is set up.  
 
 1. Each day a comparison was run to determine intra-week statistics, providing more granularity in our analysis.  
-2. The first test ran from 2020-03-25 to 2020-03-31. Where soniAmrs02 was configured to the "general" setting and soniAmrs03 was configured to the "low-mag" setting.  
-3. The second test ran from 2020-04-01 to 2020-04-11. Where soniAmrs02 was configured to the "low-mag" setting and soniAmrs02 was configured to the "general" setting.  
-4. The background color indicates what setting the AMRS was set to, <span style="color:black"><b>Black</b></span> cells are general setting, while the blank background cells are low-mag.  
-5. The text color indicates if the individual statistic met or failed the requirement. <span style="color:#00cc00"><b>Green</b></span> indicating passing, while <span style="color:firebrick"><b>Red</b></span> indicates failing
+2. The background color helps track what setting the AMRS was set to:  
+  * light-grey <span style="color:silver"><b>example</b></span> cells are set to firmware __01.04.01__.  
+  * light-yellow <span style="color:#FCF8CF"><b>example</b></span> cells are set to firmware __01.04.05__.  
+  * light-blue <span style="color:#CAF7EC"><b>example</b></span> cells are set to firmware __01.05.01__.   
+  
+3. The text color indicates if the individual statistic met or failed the requirement. <span style="color:black"><b>Black</b></span> indicates passing, while <span style="color:firebrick"><b>Red</b></span> indicates failing
 
 ```{r stats, layout = "l-page"}
 stat_files = list.files(path = "~/eddy/neon-sensor-test/data/2021_AMRS_Round_3/stats/", full.names = TRUE)
@@ -187,8 +213,8 @@ for(i in stat_files){
 
 }
 stats.data <- stats.data %>%
-  dplyr::mutate(value = as.numeric(value))
-options(scipen=999)
+  dplyr::mutate(value = abs(as.numeric(value)))
+# options(scipen=999)
 ```
 
 ## Velocities  
@@ -199,23 +225,25 @@ To ensure the detectability of < 1 W m-2 least resolvable change in the eddy-cov
 
 Both settings <span style="color:#00cc00"><b>PASSED</b></span>
 
-```{r, layout = "l-screen"}
+```{r, layout = "l-page"}
+acc_axsDiffFilt.prcs_requirement = 0.05
 acc_axsDiffFilt.prcs <- stats.data %>%
   dplyr::filter(stringr::str_detect(string = measurement, pattern = "axsDiffFilt") == TRUE) %>%
   dplyr::filter(stat %in% c("prcs"))%>%
   dplyr::mutate(test_date = as.Date(test.date, origin = "1970-01-01")) %>% dplyr::select(-test.date) %>% 
   dplyr::mutate(value = round(value, 6)) %>%
-  dplyr::mutate(setting = ifelse(test = sensor == "soniAmrs02" & test_date %in% seq.Date(from = run_2_duration_date[1], to = run_2_duration_date[2], by = "1 day"), yes = "01.04.05", no = NA)) %>% 
+  dplyr::mutate(setting = ifelse(test = sensor == "soniAmrs02" & test_date %in% seq.Date(from = run_1_duration_date[1], to = run_1_duration_date[2], by = "1 day"), yes = "01.04.01", no = NA)) %>% 
+  dplyr::mutate(setting = ifelse(test = sensor == "soniAmrs03" & test_date %in% seq.Date(from = run_1_duration_date[1], to = run_1_duration_date[2], by = "1 day"), yes = "01.04.01", no = setting)) %>% 
+  dplyr::mutate(setting = ifelse(test = sensor == "soniAmrs02" & test_date %in% seq.Date(from = run_2_duration_date[1], to = run_2_duration_date[2], by = "1 day"), yes = "01.04.05", no = setting)) %>% 
   dplyr::mutate(setting = ifelse(test = sensor == "soniAmrs02" & test_date %in% seq.Date(from = run_3_duration_date[1], to = run_3_duration_date[2], by = "1 day"), yes = "01.05.01", no = setting)) %>% 
   dplyr::mutate(setting = ifelse(test = sensor == "soniAmrs03" & test_date %in% seq.Date(from = run_2_duration_date[1], to = run_2_duration_date[2], by = "1 day"), yes = "01.05.01", no = setting)) %>%
   dplyr::mutate(setting = ifelse(test = sensor == "soniAmrs03" & test_date %in% seq.Date(from = run_3_duration_date[1], to = run_3_duration_date[2], by = "1 day"), yes = "01.04.05", no = setting)) %>% 
   dplyr::filter(is.na(setting) == FALSE) %>%
   dplyr::filter(is.na(value) == FALSE) %>%
-  dplyr::mutate(value = kableExtra::cell_spec(value, "html", color = ifelse(abs(value) <= 0.05, "#00cc00","firebrick"), background = ifelse(setting == "01.04.05", "white","black"), bold = TRUE)) %>% 
-  dplyr::filter(test_date >= run_3_duration[1]) %>% 
-  reshape2::dcast(sensor + measurement + stat ~ test_date)  
+  dplyr::mutate(value = kableExtra::cell_spec(value, "html", color = ifelse(abs(value) <= acc_axsDiffFilt.prcs_requirement, "black","red"), background = ifelse(setting == "01.04.05", "#FCF8CF", no = ifelse(setting == "01.05.01", yes = "#CAF7EC", no = ifelse(setting == "01.04.01", yes ="silver", no = "white"))), bold = TRUE)) %>% 
+  reshape2::dcast(sensor + measurement + stat ~ test_date)   
 
-DT::datatable(acc_axsDiffFilt.prcs, escape = FALSE, options = list(dom = 't')) %>% 
+DT::datatable(acc_axsDiffFilt.prcs, escape = FALSE, options = list(scrollX = TRUE)) %>% 
   DT::formatStyle(columns = c("sensor", "measurement", "stat"), backgroundColor = 'gray') 
 ```
 
@@ -225,24 +253,25 @@ To ensure the detectability of < 5 W m-2 advective divergence in the eddy-covari
 
 Both settings <span style="color:#00cc00"><b>PASSED</b></span>  
 
-```{r, layout = "l-screen"}
-
+```{r, layout = "l-page"}
+acc_axsDiffFilt.diffMean_requirement = 0.10
 acc_axsDiffFilt.diffMean <- stats.data %>%
   dplyr::filter(stringr::str_detect(string = measurement, pattern = "axsDiffFilt") == TRUE) %>%
   dplyr::filter(stat %in% c("diffMean"))%>%
-  dplyr::mutate(value = round(value, 7)) %>%
+  dplyr::mutate(value = round(value, 10)) %>%
   dplyr::mutate(test_date = as.Date(test.date, origin = "1970-01-01")) %>% dplyr::select(-test.date) %>% 
-  dplyr::mutate(setting = ifelse(test = sensor == "soniAmrs02" & test_date %in% seq.Date(from = run_2_duration_date[1], to = run_2_duration_date[2], by = "1 day"), yes = "01.04.05", no = NA)) %>% 
+  dplyr::mutate(setting = ifelse(test = sensor == "soniAmrs02" & test_date %in% seq.Date(from = run_1_duration_date[1], to = run_1_duration_date[2], by = "1 day"), yes = "01.04.01", no = NA)) %>% 
+  dplyr::mutate(setting = ifelse(test = sensor == "soniAmrs03" & test_date %in% seq.Date(from = run_1_duration_date[1], to = run_1_duration_date[2], by = "1 day"), yes = "01.04.01", no = setting)) %>% 
+  dplyr::mutate(setting = ifelse(test = sensor == "soniAmrs02" & test_date %in% seq.Date(from = run_2_duration_date[1], to = run_2_duration_date[2], by = "1 day"), yes = "01.04.05", no = setting)) %>% 
   dplyr::mutate(setting = ifelse(test = sensor == "soniAmrs02" & test_date %in% seq.Date(from = run_3_duration_date[1], to = run_3_duration_date[2], by = "1 day"), yes = "01.05.01", no = setting)) %>% 
   dplyr::mutate(setting = ifelse(test = sensor == "soniAmrs03" & test_date %in% seq.Date(from = run_2_duration_date[1], to = run_2_duration_date[2], by = "1 day"), yes = "01.05.01", no = setting)) %>%
   dplyr::mutate(setting = ifelse(test = sensor == "soniAmrs03" & test_date %in% seq.Date(from = run_3_duration_date[1], to = run_3_duration_date[2], by = "1 day"), yes = "01.04.05", no = setting)) %>% 
   dplyr::filter(is.na(setting) == FALSE) %>%
   dplyr::filter(is.na(value) == FALSE) %>%
-  dplyr::mutate(value = kableExtra::cell_spec(value, "html", color = ifelse(abs(value) <= 0.1, "#00cc00","firebrick"), background = ifelse(setting == "01.04.05", "white","black"), bold = TRUE)) %>% 
-  dplyr::filter(test_date >= run_3_duration[1]) %>% 
+  dplyr::mutate(value = kableExtra::cell_spec(value, "html", color = ifelse(abs(value) <= acc_axsDiffFilt.diffMean_requirement, "black","red"), background = ifelse(setting == "01.04.05", "#FCF8CF", no = ifelse(setting == "01.05.01", yes = "#CAF7EC", no = ifelse(setting == "01.04.01", yes ="silver", no = "white"))), bold = TRUE)) %>% 
   reshape2::dcast(sensor + measurement + stat ~ test_date)  
 
-DT::datatable(acc_axsDiffFilt.diffMean, escape = FALSE, options = list(dom = 't')) %>% 
+DT::datatable(acc_axsDiffFilt.diffMean, escape = FALSE, options = list(scrollX = TRUE)) %>% 
   DT::formatStyle(columns = c("sensor", "measurement", "stat"), backgroundColor = 'gray')
 ```
 
@@ -255,22 +284,26 @@ To enable determining the 3-D wind vector with respect to the earth coordinate s
 
 Both settings <span style="color:#00cc00"><b>PASSED</b></span>  
 
-```{r, layout = "l-screen"}
+```{r, layout = "l-page"}
+avel_axsDeg.prcs_requirement = 2.0
 avel_axsDeg.prcs <- stats.data %>%
   dplyr::filter(stringr::str_detect(string = measurement, pattern = "avel") == TRUE) %>%
   dplyr::filter(stat %in% c("prcs"))%>%
   dplyr::mutate(value = round(value, 7)) %>%
   dplyr::mutate(test_date = as.Date(test.date, origin = "1970-01-01")) %>% dplyr::select(-test.date) %>% 
-  dplyr::mutate(setting = ifelse(test = sensor == "soniAmrs02" & test_date %in% seq.Date(from = run_2_duration_date[1], to = run_2_duration_date[2], by = "1 day"), yes = "01.04.05", no = NA)) %>% 
+  dplyr::mutate(setting = ifelse(test = sensor == "soniAmrs02" & test_date %in% seq.Date(from = run_1_duration_date[1], to = run_1_duration_date[2], by = "1 day"), yes = "01.04.01", no = NA)) %>% 
+  dplyr::mutate(setting = ifelse(test = sensor == "soniAmrs03" & test_date %in% seq.Date(from = run_1_duration_date[1], to = run_1_duration_date[2], by = "1 day"), yes = "01.04.01", no = setting)) %>% 
+  dplyr::mutate(setting = ifelse(test = sensor == "soniAmrs02" & test_date %in% seq.Date(from = run_2_duration_date[1], to = run_2_duration_date[2], by = "1 day"), yes = "01.04.05", no = setting)) %>% 
   dplyr::mutate(setting = ifelse(test = sensor == "soniAmrs02" & test_date %in% seq.Date(from = run_3_duration_date[1], to = run_3_duration_date[2], by = "1 day"), yes = "01.05.01", no = setting)) %>% 
   dplyr::mutate(setting = ifelse(test = sensor == "soniAmrs03" & test_date %in% seq.Date(from = run_2_duration_date[1], to = run_2_duration_date[2], by = "1 day"), yes = "01.05.01", no = setting)) %>%
   dplyr::mutate(setting = ifelse(test = sensor == "soniAmrs03" & test_date %in% seq.Date(from = run_3_duration_date[1], to = run_3_duration_date[2], by = "1 day"), yes = "01.04.05", no = setting)) %>% 
   dplyr::filter(is.na(setting) == FALSE) %>%
   dplyr::filter(is.na(value) == FALSE) %>%
-  dplyr::mutate(value = kableExtra::cell_spec(value, "html", color = ifelse(abs(value) <= 2.0, "#00cc00","firebrick"), background = ifelse(setting == "01.04.05", "white","black"), bold = TRUE)) %>% 
-  dplyr::filter(test_date >= run_3_duration[1]) %>% 
+  dplyr::mutate(value = kableExtra::cell_spec(value, "html", color = ifelse(abs(value) <= avel_axsDeg.prcs_requirement, "black","red"), background = ifelse(setting == "01.04.05", "#FCF8CF", no = ifelse(setting == "01.05.01", yes = "#CAF7EC", no = ifelse(setting == "01.04.01", yes ="silver", no = "white"))), bold = TRUE)) %>% 
+  # dplyr::filter(test_date >= run_3_duration[1]) %>% 
   reshape2::dcast(sensor + measurement + stat ~ test_date)  
-DT::datatable(avel_axsDeg.prcs, escape = FALSE, options = list(dom = 't')) 
+DT::datatable(avel_axsDeg.prcs, escape = FALSE, options = list(scrollX = TRUE)) %>% 
+  DT::formatStyle(columns = c("sensor", "measurement", "stat"), backgroundColor = 'gray')
 ```
 
 ### Resolution  
@@ -279,22 +312,25 @@ To enable determining the 3-D wind vector with respect to the earth coordinate s
 
 Both settings <span style="color:#00cc00"><b>PASSED</b></span>
 
-```{r, layout = "l-screen"}
+```{r, layout = "l-page"}
+avel_axsDeg.reso_requirement = 0.2
 avel_axsDeg.reso <- stats.data %>%
   dplyr::filter(stringr::str_detect(string = measurement, pattern = "avel") == TRUE) %>%
   dplyr::filter(stat %in% c("reso")) %>%
   dplyr::mutate(value = round(value, 7)) %>%
   dplyr::mutate(test_date = as.Date(test.date, origin = "1970-01-01")) %>% dplyr::select(-test.date) %>% 
-  dplyr::mutate(setting = ifelse(test = sensor == "soniAmrs02" & test_date %in% seq.Date(from = run_2_duration_date[1], to = run_2_duration_date[2], by = "1 day"), yes = "01.04.05", no = NA)) %>% 
+  dplyr::mutate(setting = ifelse(test = sensor == "soniAmrs02" & test_date %in% seq.Date(from = run_1_duration_date[1], to = run_1_duration_date[2], by = "1 day"), yes = "01.04.01", no = NA)) %>% 
+  dplyr::mutate(setting = ifelse(test = sensor == "soniAmrs03" & test_date %in% seq.Date(from = run_1_duration_date[1], to = run_1_duration_date[2], by = "1 day"), yes = "01.04.01", no = setting)) %>% 
+  dplyr::mutate(setting = ifelse(test = sensor == "soniAmrs02" & test_date %in% seq.Date(from = run_2_duration_date[1], to = run_2_duration_date[2], by = "1 day"), yes = "01.04.05", no = setting)) %>% 
   dplyr::mutate(setting = ifelse(test = sensor == "soniAmrs02" & test_date %in% seq.Date(from = run_3_duration_date[1], to = run_3_duration_date[2], by = "1 day"), yes = "01.05.01", no = setting)) %>% 
   dplyr::mutate(setting = ifelse(test = sensor == "soniAmrs03" & test_date %in% seq.Date(from = run_2_duration_date[1], to = run_2_duration_date[2], by = "1 day"), yes = "01.05.01", no = setting)) %>%
   dplyr::mutate(setting = ifelse(test = sensor == "soniAmrs03" & test_date %in% seq.Date(from = run_3_duration_date[1], to = run_3_duration_date[2], by = "1 day"), yes = "01.04.05", no = setting)) %>% 
   dplyr::filter(is.na(setting) == FALSE) %>%
   dplyr::filter(is.na(value) == FALSE) %>%
-  dplyr::mutate(value = kableExtra::cell_spec(value, "html", color = ifelse(abs(value) <= 0.2, "#00cc00","firebrick"), background = ifelse(setting == "01.04.05", "white","black"), bold = TRUE)) %>% 
-  dplyr::filter(test_date >= run_3_duration[1]) %>% 
+  dplyr::mutate(value = kableExtra::cell_spec(value, "html", color = ifelse(abs(value) <= avel_axsDeg.reso_requirement, "black","red"), background = ifelse(setting == "01.04.05", "#FCF8CF", no = ifelse(setting == "01.05.01", yes = "#CAF7EC", no = ifelse(setting == "01.04.01", yes ="silver", no = "white"))), bold = TRUE)) %>% 
   reshape2::dcast(sensor + measurement + stat ~ test_date)
-DT::datatable(avel_axsDeg.reso, escape = FALSE, options = list(dom = 't'))
+DT::datatable(avel_axsDeg.reso, escape = FALSE, options = list(scrollX = TRUE))%>% 
+  DT::formatStyle(columns = c("sensor", "measurement", "stat"), backgroundColor = 'gray')
 ```
 
 
@@ -304,22 +340,25 @@ To enable determining the 3-D wind vector with respect to the earth coordinate s
 
 Both settings <span style="color:#00cc00"><b>PASSED</b></span>  
 
-```{r, layout = "l-screen"}
+```{r, layout = "l-page"}
+avel_axsDeg.diffMean_requirement = 4.00
 avel_axsDeg.diffMean <- stats.data %>%
   dplyr::filter(stringr::str_detect(string = measurement, pattern = "avel") == TRUE) %>%
   dplyr::filter(stat %in% c("diffMean"))%>%
   dplyr::mutate(value = round(value, 7)) %>%
   dplyr::mutate(test_date = as.Date(test.date, origin = "1970-01-01")) %>% dplyr::select(-test.date) %>% 
-  dplyr::mutate(setting = ifelse(test = sensor == "soniAmrs02" & test_date %in% seq.Date(from = run_2_duration_date[1], to = run_2_duration_date[2], by = "1 day"), yes = "01.04.05", no = NA)) %>% 
+  dplyr::mutate(setting = ifelse(test = sensor == "soniAmrs02" & test_date %in% seq.Date(from = run_1_duration_date[1], to = run_1_duration_date[2], by = "1 day"), yes = "01.04.01", no = NA)) %>% 
+  dplyr::mutate(setting = ifelse(test = sensor == "soniAmrs03" & test_date %in% seq.Date(from = run_1_duration_date[1], to = run_1_duration_date[2], by = "1 day"), yes = "01.04.01", no = setting)) %>% 
+  dplyr::mutate(setting = ifelse(test = sensor == "soniAmrs02" & test_date %in% seq.Date(from = run_2_duration_date[1], to = run_2_duration_date[2], by = "1 day"), yes = "01.04.05", no = setting)) %>% 
   dplyr::mutate(setting = ifelse(test = sensor == "soniAmrs02" & test_date %in% seq.Date(from = run_3_duration_date[1], to = run_3_duration_date[2], by = "1 day"), yes = "01.05.01", no = setting)) %>% 
   dplyr::mutate(setting = ifelse(test = sensor == "soniAmrs03" & test_date %in% seq.Date(from = run_2_duration_date[1], to = run_2_duration_date[2], by = "1 day"), yes = "01.05.01", no = setting)) %>%
   dplyr::mutate(setting = ifelse(test = sensor == "soniAmrs03" & test_date %in% seq.Date(from = run_3_duration_date[1], to = run_3_duration_date[2], by = "1 day"), yes = "01.04.05", no = setting)) %>% 
   dplyr::filter(is.na(setting) == FALSE) %>%
   dplyr::filter(is.na(value) == FALSE) %>%
-  dplyr::mutate(value = kableExtra::cell_spec(value, "html", color = ifelse(abs(value) <= 4.0, "#00cc00","firebrick"), background = ifelse(setting == "low-mag", "white","black"), bold = TRUE)) %>%
-  dplyr::filter(test_date >= run_3_duration[1]) %>% 
+  dplyr::mutate(value = kableExtra::cell_spec(value, "html", color = ifelse(abs(value) <= avel_axsDeg.diffMean_requirement, "black","red"), background = ifelse(setting == "01.04.05", "#FCF8CF", no = ifelse(setting == "01.05.01", yes = "#CAF7EC", no = ifelse(setting == "01.04.01", yes ="silver", no = "white"))), bold = TRUE)) %>% 
   reshape2::dcast(sensor + measurement + stat ~ test_date)
-DT::datatable(avel_axsDeg.diffMean, escape = FALSE, options = list(dom = 't')) 
+DT::datatable(avel_axsDeg.diffMean, escape = FALSE, options = list(scrollX = TRUE)) %>% 
+  DT::formatStyle(columns = c("sensor", "measurement", "stat"), backgroundColor = 'gray')
 ```
 
 
@@ -329,54 +368,107 @@ DT::datatable(avel_axsDeg.diffMean, escape = FALSE, options = list(dom = 't'))
 
 To enable determining the 3-D wind vector with respect to the earth coordinate system, the AMRS shall be capable of measuring azimuth (around z-axis) with an accuracy of ≤ 4 deg, including any internal alignment offsets.  
 
-soniAMRS02 mostly <span style="color:#00cc00"><b>PASSED</b></span> with one bad day on 2020-04-04 (*low-mag*). 
+soniAMRS02 entirely <span style="color:#b22222"><b>FAILED</b></span> regardless of what setting it was on.  
 
-soniAmrs03 entirely <span style="color:#00cc00"><b>FAILED</b></span> regardless of what setting it was on.
+soniAmrs03 entirely <span style="color:#00cc00"><b>PASSED</b></span> regardless of what setting it was on.  
 
-```{r, layout = "l-screen"}
+```{r, layout = "l-page"}
+ang_axsDeg.diffMean_requirement = 4.00
 ang_axsDeg.diffMean <- stats.data %>%
   dplyr::filter(stringr::str_detect(string = measurement, pattern = "angZ") == TRUE) %>%
   dplyr::filter(stat %in% c("diffMean"))%>%
   dplyr::mutate(value = round(value, 5)) %>%
   dplyr::mutate(test_date = as.Date(test.date, origin = "1970-01-01")) %>% dplyr::select(-test.date) %>% 
-  dplyr::mutate(setting = ifelse(test = sensor == "soniAmrs02" & test_date %in% seq.Date(from = run_2_duration_date[1], to = run_2_duration_date[2], by = "1 day"), yes = "01.04.05", no = NA)) %>% 
+  dplyr::mutate(setting = ifelse(test = sensor == "soniAmrs02" & test_date %in% seq.Date(from = run_1_duration_date[1], to = run_1_duration_date[2], by = "1 day"), yes = "01.04.01", no = NA)) %>% 
+  dplyr::mutate(setting = ifelse(test = sensor == "soniAmrs03" & test_date %in% seq.Date(from = run_1_duration_date[1], to = run_1_duration_date[2], by = "1 day"), yes = "01.04.01", no = setting)) %>% 
+  dplyr::mutate(setting = ifelse(test = sensor == "soniAmrs02" & test_date %in% seq.Date(from = run_2_duration_date[1], to = run_2_duration_date[2], by = "1 day"), yes = "01.04.05", no = setting)) %>% 
   dplyr::mutate(setting = ifelse(test = sensor == "soniAmrs02" & test_date %in% seq.Date(from = run_3_duration_date[1], to = run_3_duration_date[2], by = "1 day"), yes = "01.05.01", no = setting)) %>% 
   dplyr::mutate(setting = ifelse(test = sensor == "soniAmrs03" & test_date %in% seq.Date(from = run_2_duration_date[1], to = run_2_duration_date[2], by = "1 day"), yes = "01.05.01", no = setting)) %>%
   dplyr::mutate(setting = ifelse(test = sensor == "soniAmrs03" & test_date %in% seq.Date(from = run_3_duration_date[1], to = run_3_duration_date[2], by = "1 day"), yes = "01.04.05", no = setting)) %>% 
   dplyr::filter(is.na(setting) == FALSE) %>%
-  dplyr::filter(is.na(value) == FALSE) %>%
-  dplyr::mutate(value = kableExtra::cell_spec(value, "html", color = ifelse(abs(value) <= 4.0, "#00cc00","firebrick"), background = ifelse(setting == "low-mag", "white","black"), bold = TRUE)) %>%
-  dplyr::filter(test_date >= run_3_duration[1]) %>% 
+  dplyr::filter(is.na(value) == FALSE) 
+
+ang_axsDeg.diffMean.reshape = ang_axsDeg.diffMean %>%
+  dplyr::mutate(value = kableExtra::cell_spec(value, "html", color = ifelse(abs(value) <= ang_axsDeg.diffMean_requirement, "black","red"), background = ifelse(setting == "01.04.05", "#FCF8CF", no = ifelse(setting == "01.05.01", yes = "#CAF7EC", no = ifelse(setting == "01.04.01", yes ="silver", no = "white"))), bold = TRUE)) %>% 
   reshape2::dcast(sensor + measurement + stat ~ test_date)
-DT::datatable(ang_axsDeg.diffMean, escape = FALSE, options = list(dom = 't'))
+DT::datatable(ang_axsDeg.diffMean.reshape, escape = FALSE, options = list(scrollX = TRUE)) %>% 
+  DT::formatStyle(columns = c("sensor", "measurement", "stat"), backgroundColor = 'gray')
+
+
+ggplot(ang_axsDeg.diffMean, aes(x = test_date, y = value, color = sensor))+
+  annotate("rect", xmin = min(ang_axsDeg.diffMean$test_date), xmax = max(ang_axsDeg.diffMean$test_date), ymin = 0, ymax = 4.0, alpha = 0.65, fill = "green")+
+  scale_x_date(breaks = scales::pretty_breaks(4)) +
+  geom_vline(xintercept = as.Date(run_1_duration[1], origin = "1970-01-01"),alpha = .5, linetype = "dashed", color = "black") +
+  geom_vline(xintercept = as.Date(run_1_duration[2], origin = "1970-01-01"),alpha = .5, linetype = "dashed", color = "black") +
+  geom_vline(xintercept = as.Date(run_2_duration[2], origin = "1970-01-01"),alpha = .5, linetype = "dashed", color = "black") +
+  geom_vline(xintercept = as.Date(run_3_duration[2], origin = "1970-01-01"),alpha = .5, linetype = "dashed", color = "black") +
+  geom_point()+
+  scale_y_continuous(limits = c(0, max(ang_axsDeg.diffMean$value, na.rm = TRUE)), breaks = scales::pretty_breaks(n = 10)) +
+  labs(x ="", y = "diffMean", title = "Comparison of angZaxsDeg measurements to the reference soniAMRS01", subtitle = "Requirement is that diffMean be below 4.0")+
+  facet_wrap(~measurement, scales = "free_y") +
+  theme(legend.position = "top")
 ```
 
 ### Precision  
 
 To enable determining the 3-D wind vector with respect to the earth coordinate system, the AMRS shall be capable of measuring azimuth (around z-axis), pitch (around y-axis) and roll (around x-axis) with a precision of ≤ 0.1 deg.
 
+Both sensors struggled with this comparison of precision. 
 
-soniAmrs02 <span style="color:#00cc00"><b>passed</b></span> while in *general* setting for X and Y angles, but failed by ~.08 on angZ. Additionally, soniAmrs02 <span style="color:firebrick"><b>failed</b></span> by ~ 0.03 for X and Y angles and by ~ 0.2 for Z angle during *low-mag* setting.
+1. angXaxsDeg: 
+* soniAmrs02 mostly passed during all the 3 runs (`01.04.01`, `01.04.05`, `01.05.01`)  
+* soniAmrs03 failed entirely, but by a very close margin, on average it was `0.07` above the `0.1` theshold  
 
-soniAmrs03 <span style="color:firebrick"><b>Failed</b></span> in both settings by larger margins than soniAmrs02, but generally performed better across all axis whilst set to *general*
+2. angYaxsDeg:  
+* soniAmrs02 mostly failed, but by a very close margin, on average it was `0.002` above the `0.1` threshold  
+* soniAmrs03 entirely failed, but by a close margin, on average is was `0.03` above the `0.1` threshold
 
+3. angZaxsDeg:  
+* soniAmrs02 entirely failed, by a margin of `1.06` above the `0.1` threshold  
+* soniAmrs03 entirely failed, by a margin of `0.39` above the `0.1` threshold  
 
-```{r, layout = "l-screen"}
+```{r, layout = "l-page"}
+ang_axsDeg.prcs_requirement = 0.1
 ang_axsDeg.prcs <- stats.data %>%
   dplyr::filter(stringr::str_detect(string = measurement, pattern = "ang") == TRUE) %>%
   dplyr::filter(stat %in% c("prcs"))%>%
   dplyr::mutate(value = round(value, 5)) %>%
   dplyr::mutate(test_date = as.Date(test.date, origin = "1970-01-01")) %>% dplyr::select(-test.date) %>% 
-  dplyr::mutate(setting = ifelse(test = sensor == "soniAmrs02" & test_date %in% seq.Date(from = run_2_duration_date[1], to = run_2_duration_date[2], by = "1 day"), yes = "01.04.05", no = NA)) %>% 
+  dplyr::mutate(setting = ifelse(test = sensor == "soniAmrs02" & test_date %in% seq.Date(from = run_1_duration_date[1], to = run_1_duration_date[2], by = "1 day"), yes = "01.04.01", no = NA)) %>% 
+  dplyr::mutate(setting = ifelse(test = sensor == "soniAmrs03" & test_date %in% seq.Date(from = run_1_duration_date[1], to = run_1_duration_date[2], by = "1 day"), yes = "01.04.01", no = setting)) %>% 
+  dplyr::mutate(setting = ifelse(test = sensor == "soniAmrs02" & test_date %in% seq.Date(from = run_2_duration_date[1], to = run_2_duration_date[2], by = "1 day"), yes = "01.04.05", no = setting)) %>% 
   dplyr::mutate(setting = ifelse(test = sensor == "soniAmrs02" & test_date %in% seq.Date(from = run_3_duration_date[1], to = run_3_duration_date[2], by = "1 day"), yes = "01.05.01", no = setting)) %>% 
   dplyr::mutate(setting = ifelse(test = sensor == "soniAmrs03" & test_date %in% seq.Date(from = run_2_duration_date[1], to = run_2_duration_date[2], by = "1 day"), yes = "01.05.01", no = setting)) %>%
   dplyr::mutate(setting = ifelse(test = sensor == "soniAmrs03" & test_date %in% seq.Date(from = run_3_duration_date[1], to = run_3_duration_date[2], by = "1 day"), yes = "01.04.05", no = setting)) %>% 
   dplyr::filter(is.na(setting) == FALSE) %>%
-  dplyr::filter(is.na(value) == FALSE) %>%
-  dplyr::mutate(value = kableExtra::cell_spec(value, "html", color = ifelse(abs(value) <= 0.1, "#00cc00","firebrick"), background = ifelse(setting == "low-mag", "white","black"), bold = TRUE)) %>%
-  dplyr::filter(test_date >= run_3_duration[1]) %>% 
+  dplyr::filter(is.na(value) == FALSE) 
+
+ang_axsDeg.prcs_table = ang_axsDeg.prcs %>%
+  dplyr::mutate(value = kableExtra::cell_spec(value, "html", color = ifelse(abs(value) <= ang_axsDeg.prcs_requirement, "black","red"), background = ifelse(setting == "01.04.05", "#FCF8CF", no = ifelse(setting == "01.05.01", yes = "#CAF7EC", no = ifelse(setting == "01.04.01", yes ="silver", no = "white"))), bold = TRUE)) %>% 
   reshape2::dcast(sensor + measurement + stat ~ test_date)
-DT::datatable(ang_axsDeg.prcs, escape = FALSE, options = list(dom = 't')) 
+DT::datatable(ang_axsDeg.prcs_table, escape = FALSE, options = list(scrollX = TRUE)) %>% 
+  DT::formatStyle(columns = c("sensor", "measurement", "stat"), backgroundColor = 'gray')
+
+## STATS 
+# ang_axsDeg.prcs %>% 
+#   dplyr::filter(sensor == "soniAmrs02" & stat == "prcs" & measurement == "angZaxsDeg") %>% 
+#   summarize(
+#     mean(value)
+#   )
+
+
+ggplot(ang_axsDeg.prcs, aes(x = test_date, y = value, color = sensor))+
+  annotate("rect", xmin = min(ang_axsDeg.prcs$test_date), xmax = max(ang_axsDeg.prcs$test_date), ymin = 0, ymax = .1, alpha = 0.65, fill = "green")+
+  scale_x_date(breaks = scales::pretty_breaks(4)) +
+  geom_vline(xintercept = as.Date(run_1_duration[1], origin = "1970-01-01"),alpha = .5, linetype = "dashed", color = "black") +
+  geom_vline(xintercept = as.Date(run_1_duration[2], origin = "1970-01-01"),alpha = .5, linetype = "dashed", color = "black") +
+  geom_vline(xintercept = as.Date(run_2_duration[2], origin = "1970-01-01"),alpha = .5, linetype = "dashed", color = "black") +
+  geom_vline(xintercept = as.Date(run_3_duration[2], origin = "1970-01-01"),alpha = .5, linetype = "dashed", color = "black") +
+  geom_point()+
+  geom_hline(yintercept = .1) +
+  labs(x ="", y = "prcs", title = "Comparison of ang axs measurements to the reference soniAMRS01", subtitle = "Requirement is that prcs be below 0.1")+
+  facet_wrap(~measurement, scales = "free_y") +
+  theme(legend.position = "top")
 ```
 
 ### Resolution  
@@ -385,21 +477,25 @@ To enable determining the 3-D wind vector with respect to the earth coordinate s
 
 Both settings <span style="color:#00cc00"><b>PASSED</b></span>  
 
-```{r, layout = "l-screen"}
+```{r, layout = "l-page"}
+ang_axsDeg.reso_requirement = 0.05
 ang_axsDeg.reso <- stats.data %>%
   dplyr::filter(stringr::str_detect(string = measurement, pattern = "ang") == TRUE) %>%
   dplyr::filter(stat %in% c("reso"))%>%
   # dplyr::mutate(value = round(value, 7)) %>%
   dplyr::mutate(test_date = as.Date(test.date, origin = "1970-01-01")) %>% dplyr::select(-test.date) %>% 
-  dplyr::mutate(setting = ifelse(test = sensor == "soniAmrs02" & test_date %in% seq.Date(from = run_2_duration_date[1], to = run_2_duration_date[2], by = "1 day"), yes = "01.04.05", no = NA)) %>% 
+  dplyr::mutate(setting = ifelse(test = sensor == "soniAmrs02" & test_date %in% seq.Date(from = run_1_duration_date[1], to = run_1_duration_date[2], by = "1 day"), yes = "01.04.01", no = NA)) %>% 
+  dplyr::mutate(setting = ifelse(test = sensor == "soniAmrs03" & test_date %in% seq.Date(from = run_1_duration_date[1], to = run_1_duration_date[2], by = "1 day"), yes = "01.04.01", no = setting)) %>% 
+  dplyr::mutate(setting = ifelse(test = sensor == "soniAmrs02" & test_date %in% seq.Date(from = run_2_duration_date[1], to = run_2_duration_date[2], by = "1 day"), yes = "01.04.05", no = setting)) %>% 
   dplyr::mutate(setting = ifelse(test = sensor == "soniAmrs02" & test_date %in% seq.Date(from = run_3_duration_date[1], to = run_3_duration_date[2], by = "1 day"), yes = "01.05.01", no = setting)) %>% 
   dplyr::mutate(setting = ifelse(test = sensor == "soniAmrs03" & test_date %in% seq.Date(from = run_2_duration_date[1], to = run_2_duration_date[2], by = "1 day"), yes = "01.05.01", no = setting)) %>%
   dplyr::mutate(setting = ifelse(test = sensor == "soniAmrs03" & test_date %in% seq.Date(from = run_3_duration_date[1], to = run_3_duration_date[2], by = "1 day"), yes = "01.04.05", no = setting)) %>% 
   dplyr::filter(is.na(setting) == FALSE) %>%
   dplyr::filter(is.na(value) == FALSE) %>%
-  dplyr::mutate(value = kableExtra::cell_spec(value, "html", color = ifelse(abs(value) <= 0.05, "#00cc00","firebrick"), background = ifelse(setting == "low-mag", "white","black"), bold = TRUE)) %>%
+  dplyr::mutate(value = kableExtra::cell_spec(value, "html", color = ifelse(abs(value) <= ang_axsDeg.reso_requirement, "black","red"), background = ifelse(setting == "01.04.05", "#FCF8CF", no = ifelse(setting == "01.05.01", yes = "#CAF7EC", no = ifelse(setting == "01.04.01", yes ="silver", no = "white"))), bold = TRUE)) %>% 
   reshape2::dcast(sensor + measurement + stat ~ test_date)
-DT::datatable(ang_axsDeg.reso, escape = FALSE, options = list(dom = 't')) 
+DT::datatable(ang_axsDeg.reso, escape = FALSE, options = list(scrollX = TRUE))  %>% 
+  DT::formatStyle(columns = c("sensor", "measurement", "stat"), backgroundColor = 'gray')
 ```
 
 ### Accuracy
@@ -408,21 +504,25 @@ To enable determining the 3-D wind vector with respect to the earth coordinate s
 
 Both settings <span style="color:#00cc00"><b>PASSED</b></span>  
 
-```{r, layout = "l-screen"}
+```{r, layout = "l-page"}
+ang_axsDeg.diffMean_requirement = 1.0
 ang_axsDeg.diffMean <- stats.data %>%
   dplyr::filter(measurement %in% c("angYaxsDeg", "angXaxsDeg")) %>%
   dplyr::filter(stat %in% c("diffMean"))%>%
   dplyr::mutate(value = round(value, 5)) %>%
   dplyr::mutate(test_date = as.Date(test.date, origin = "1970-01-01")) %>% dplyr::select(-test.date) %>% 
-  dplyr::mutate(setting = ifelse(test = sensor == "soniAmrs02" & test_date %in% seq.Date(from = run_2_duration_date[1], to = run_2_duration_date[2], by = "1 day"), yes = "01.04.05", no = NA)) %>% 
+  dplyr::mutate(setting = ifelse(test = sensor == "soniAmrs02" & test_date %in% seq.Date(from = run_1_duration_date[1], to = run_1_duration_date[2], by = "1 day"), yes = "01.04.01", no = NA)) %>% 
+  dplyr::mutate(setting = ifelse(test = sensor == "soniAmrs03" & test_date %in% seq.Date(from = run_1_duration_date[1], to = run_1_duration_date[2], by = "1 day"), yes = "01.04.01", no = setting)) %>% 
+  dplyr::mutate(setting = ifelse(test = sensor == "soniAmrs02" & test_date %in% seq.Date(from = run_2_duration_date[1], to = run_2_duration_date[2], by = "1 day"), yes = "01.04.05", no = setting)) %>% 
   dplyr::mutate(setting = ifelse(test = sensor == "soniAmrs02" & test_date %in% seq.Date(from = run_3_duration_date[1], to = run_3_duration_date[2], by = "1 day"), yes = "01.05.01", no = setting)) %>% 
   dplyr::mutate(setting = ifelse(test = sensor == "soniAmrs03" & test_date %in% seq.Date(from = run_2_duration_date[1], to = run_2_duration_date[2], by = "1 day"), yes = "01.05.01", no = setting)) %>%
   dplyr::mutate(setting = ifelse(test = sensor == "soniAmrs03" & test_date %in% seq.Date(from = run_3_duration_date[1], to = run_3_duration_date[2], by = "1 day"), yes = "01.04.05", no = setting)) %>% 
   dplyr::filter(is.na(setting) == FALSE) %>%
   dplyr::filter(is.na(value) == FALSE) %>%
-  dplyr::mutate(value = kableExtra::cell_spec(value, "html", color = ifelse(abs(value) <= 1.0, "#00cc00","firebrick"), background = ifelse(setting == "low-mag", "white","black"), bold = TRUE)) %>%
+  dplyr::mutate(value = kableExtra::cell_spec(value, "html", color = ifelse(abs(value) <= ang_axsDeg.diffMean_requirement, "black","red"), background = ifelse(setting == "01.04.05", "#FCF8CF", no = ifelse(setting == "01.05.01", yes = "#CAF7EC", no = ifelse(setting == "01.04.01", yes ="silver", no = "white"))), bold = TRUE)) %>% 
   reshape2::dcast(sensor + measurement + stat ~ test_date)
-DT::datatable(ang_axsDeg.diffMean, escape = FALSE, options = list(dom = 't')) 
+DT::datatable(ang_axsDeg.diffMean, escape = FALSE, options = list(scrollX = TRUE)) %>% 
+  DT::formatStyle(columns = c("sensor", "measurement", "stat"), backgroundColor = 'gray')
 ```
 
 
@@ -535,7 +635,7 @@ gridExtra::grid.arrange(p7, p8, p9, nrow = 1)
 
 ### Angles
 
-```{r, layout = "l-page"}
+```{r, layout = "l-page", eval = FALSE}
 ### Annotations set up the color annoations to displaay the cooresponding backgrounds.
 ### Move up to above stats.
 ang.plot <- data.table::data.table()
@@ -655,7 +755,7 @@ gridExtra::grid.arrange(p1.ang.z, p2.ang.z, p3.ang.z, nrow = 1,
 
 ### Acceleration  
 
-```{r, layout = "l-page"}
+```{r, layout = "l-page", eval = FALSE}
 ### Annotations set up the color annoations to displaay the cooresponding backgrounds.
 ### Move up to above stats.
 acc.plot <- data.table::data.table()
@@ -767,7 +867,7 @@ gridExtra::grid.arrange(p1.acc.z, p2.acc.z, p3.acc.z, nrow = 1,
                           )
 ```
 
-```{r, layout = "l-page"}
+```{r, layout = "l-page", eval = FALSE}
 #Ploting 1:1 comparison each soniAmrs
 require(stats)
 # Westerly wind will give us better data
