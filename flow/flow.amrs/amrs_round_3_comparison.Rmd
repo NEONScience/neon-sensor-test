@@ -3,6 +3,7 @@ title: "AMRS Intercomparison Round 3"
 author:
   - name: Kevin Styers
   - name: Natchya Durden
+  - name: David Durden
   - name: Stefan Metzger
   - name: Hongyan Luo
 date: "`r Sys.Date()`"
@@ -80,9 +81,9 @@ soniAmrs_plot_data <- data.table::rbindlist(l = list(soniAmrs01_data, soniAmrs02
 An intercomparison analysis was performed to assess the potential differences between AMRS values when configured with different firmware versions.   
 
 
-~~*Recommendation:*~~
+*Recommendation:*
 
-> We propose that
+> We propose that the two test firmware versions; 01.04.05 and 01.05.01, be approved based upon the results of the analysis. One test sensor appeared to be faulty, but the other test sensor showed very little change between firmware changes and passed the majority of our tests.
 
 ```{r, layout = "l-page", echo = FALSE}
 ang.plot = bigData$avg60 %>% 
@@ -243,8 +244,8 @@ acc_axsDiffFilt.prcs <- stats.data %>%
   dplyr::mutate(value = kableExtra::cell_spec(value, "html", color = ifelse(abs(value) <= acc_axsDiffFilt.prcs_requirement, "black","red"), background = ifelse(setting == "01.04.05", "#FCF8CF", no = ifelse(setting == "01.05.01", yes = "#CAF7EC", no = ifelse(setting == "01.04.01", yes ="silver", no = "white"))), bold = TRUE)) %>% 
   reshape2::dcast(sensor + measurement + stat ~ test_date)   
 
-DT::datatable(acc_axsDiffFilt.prcs, escape = FALSE, options = list(scrollX = TRUE)) %>% 
-  DT::formatStyle(columns = c("sensor", "measurement", "stat"), backgroundColor = 'gray') 
+DT::datatable(acc_axsDiffFilt.prcs, escape = FALSE, extensions = c('FixedColumns'), options = list(scrollX = TRUE, fixedColumns = list(leftColumns = 4))) %>% 
+  DT::formatStyle(columns = c("sensor", "measurement", "stat"), backgroundColor = 'silver') 
 ```
 
 ### Accuracy  
@@ -271,8 +272,8 @@ acc_axsDiffFilt.diffMean <- stats.data %>%
   dplyr::mutate(value = kableExtra::cell_spec(value, "html", color = ifelse(abs(value) <= acc_axsDiffFilt.diffMean_requirement, "black","red"), background = ifelse(setting == "01.04.05", "#FCF8CF", no = ifelse(setting == "01.05.01", yes = "#CAF7EC", no = ifelse(setting == "01.04.01", yes ="silver", no = "white"))), bold = TRUE)) %>% 
   reshape2::dcast(sensor + measurement + stat ~ test_date)  
 
-DT::datatable(acc_axsDiffFilt.diffMean, escape = FALSE, options = list(scrollX = TRUE)) %>% 
-  DT::formatStyle(columns = c("sensor", "measurement", "stat"), backgroundColor = 'gray')
+DT::datatable(acc_axsDiffFilt.diffMean, escape = FALSE, extensions = c('FixedColumns'), options = list(scrollX = TRUE, fixedColumns = list(leftColumns = 4))) %>% 
+  DT::formatStyle(columns = c("sensor", "measurement", "stat"), backgroundColor = 'silver') 
 ```
 
 
@@ -302,8 +303,9 @@ avel_axsDeg.prcs <- stats.data %>%
   dplyr::mutate(value = kableExtra::cell_spec(value, "html", color = ifelse(abs(value) <= avel_axsDeg.prcs_requirement, "black","red"), background = ifelse(setting == "01.04.05", "#FCF8CF", no = ifelse(setting == "01.05.01", yes = "#CAF7EC", no = ifelse(setting == "01.04.01", yes ="silver", no = "white"))), bold = TRUE)) %>% 
   # dplyr::filter(test_date >= run_3_duration[1]) %>% 
   reshape2::dcast(sensor + measurement + stat ~ test_date)  
-DT::datatable(avel_axsDeg.prcs, escape = FALSE, options = list(scrollX = TRUE)) %>% 
-  DT::formatStyle(columns = c("sensor", "measurement", "stat"), backgroundColor = 'gray')
+
+DT::datatable(avel_axsDeg.prcs, escape = FALSE, extensions = c('FixedColumns'), options = list(scrollX = TRUE, fixedColumns = list(leftColumns = 4))) %>% 
+  DT::formatStyle(columns = c("sensor", "measurement", "stat"), backgroundColor = 'silver') 
 ```
 
 ### Resolution  
@@ -329,8 +331,9 @@ avel_axsDeg.reso <- stats.data %>%
   dplyr::filter(is.na(value) == FALSE) %>%
   dplyr::mutate(value = kableExtra::cell_spec(value, "html", color = ifelse(abs(value) <= avel_axsDeg.reso_requirement, "black","red"), background = ifelse(setting == "01.04.05", "#FCF8CF", no = ifelse(setting == "01.05.01", yes = "#CAF7EC", no = ifelse(setting == "01.04.01", yes ="silver", no = "white"))), bold = TRUE)) %>% 
   reshape2::dcast(sensor + measurement + stat ~ test_date)
-DT::datatable(avel_axsDeg.reso, escape = FALSE, options = list(scrollX = TRUE))%>% 
-  DT::formatStyle(columns = c("sensor", "measurement", "stat"), backgroundColor = 'gray')
+
+DT::datatable(avel_axsDeg.reso, escape = FALSE, extensions = c('FixedColumns'), options = list(scrollX = TRUE, fixedColumns = list(leftColumns = 4))) %>% 
+  DT::formatStyle(columns = c("sensor", "measurement", "stat"), backgroundColor = 'silver') 
 ```
 
 
@@ -357,8 +360,9 @@ avel_axsDeg.diffMean <- stats.data %>%
   dplyr::filter(is.na(value) == FALSE) %>%
   dplyr::mutate(value = kableExtra::cell_spec(value, "html", color = ifelse(abs(value) <= avel_axsDeg.diffMean_requirement, "black","red"), background = ifelse(setting == "01.04.05", "#FCF8CF", no = ifelse(setting == "01.05.01", yes = "#CAF7EC", no = ifelse(setting == "01.04.01", yes ="silver", no = "white"))), bold = TRUE)) %>% 
   reshape2::dcast(sensor + measurement + stat ~ test_date)
-DT::datatable(avel_axsDeg.diffMean, escape = FALSE, options = list(scrollX = TRUE)) %>% 
-  DT::formatStyle(columns = c("sensor", "measurement", "stat"), backgroundColor = 'gray')
+
+DT::datatable(avel_axsDeg.diffMean, escape = FALSE, extensions = c('FixedColumns'), options = list(scrollX = TRUE, fixedColumns = list(leftColumns = 4))) %>% 
+  DT::formatStyle(columns = c("sensor", "measurement", "stat"), backgroundColor = 'silver') 
 ```
 
 
@@ -494,8 +498,9 @@ ang_axsDeg.reso <- stats.data %>%
   dplyr::filter(is.na(value) == FALSE) %>%
   dplyr::mutate(value = kableExtra::cell_spec(value, "html", color = ifelse(abs(value) <= ang_axsDeg.reso_requirement, "black","red"), background = ifelse(setting == "01.04.05", "#FCF8CF", no = ifelse(setting == "01.05.01", yes = "#CAF7EC", no = ifelse(setting == "01.04.01", yes ="silver", no = "white"))), bold = TRUE)) %>% 
   reshape2::dcast(sensor + measurement + stat ~ test_date)
-DT::datatable(ang_axsDeg.reso, escape = FALSE, options = list(scrollX = TRUE))  %>% 
-  DT::formatStyle(columns = c("sensor", "measurement", "stat"), backgroundColor = 'gray')
+
+DT::datatable(ang_axsDeg.reso, escape = FALSE, extensions = c('FixedColumns'), options = list(scrollX = TRUE, fixedColumns = list(leftColumns = 4))) %>% 
+  DT::formatStyle(columns = c("sensor", "measurement", "stat"), backgroundColor = 'silver') 
 ```
 
 ### Accuracy
@@ -521,8 +526,9 @@ ang_axsDeg.diffMean <- stats.data %>%
   dplyr::filter(is.na(value) == FALSE) %>%
   dplyr::mutate(value = kableExtra::cell_spec(value, "html", color = ifelse(abs(value) <= ang_axsDeg.diffMean_requirement, "black","red"), background = ifelse(setting == "01.04.05", "#FCF8CF", no = ifelse(setting == "01.05.01", yes = "#CAF7EC", no = ifelse(setting == "01.04.01", yes ="silver", no = "white"))), bold = TRUE)) %>% 
   reshape2::dcast(sensor + measurement + stat ~ test_date)
-DT::datatable(ang_axsDeg.diffMean, escape = FALSE, options = list(scrollX = TRUE)) %>% 
-  DT::formatStyle(columns = c("sensor", "measurement", "stat"), backgroundColor = 'gray')
+
+DT::datatable(ang_axsDeg.diffMean, escape = FALSE, extensions = c('FixedColumns'), options = list(scrollX = TRUE, fixedColumns = list(leftColumns = 4))) %>% 
+  DT::formatStyle(columns = c("sensor", "measurement", "stat"), backgroundColor = 'silver') 
 ```
 
 
